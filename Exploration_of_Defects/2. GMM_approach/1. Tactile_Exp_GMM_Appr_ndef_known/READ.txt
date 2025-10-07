@@ -1,0 +1,36 @@
+FOLDERS
+*********results
+
+Constraints: Total variation
+
+No weighting factor on data
+Aspect ratio kept
+
+********results1
+
+Constraints: Total variation
+
+No weighting factor on data
+Aspect ratio NOT kept
+
+********results2
+
+Constraints: Total variation, Minimum axis lengths
+
+No weighting factor on data
+Aspect ratio kept
+
+********results3
+
+Constraints: Total variation, Minimum axis lengths
+
+Weighting factor on Data = 4.
+Aspect ratio kept
+
+********results4
+
+Constraints: Total variation, Minimum axis lengths
+
+Weighting factor on Data = 4.
+
+Aspect ratio NOT kept
