@@ -1,6 +1,6 @@
 close all
 % clear
-clearvars -except UR_ipopt100V2
+clearvars -except Erg_traj_ipopt
 clc
 
 import casadi.*
@@ -9,13 +9,13 @@ import casadi.*
 
 n = 2; % Número de dimensiones espaciales
 
-L_1_l = 0.15;
-L_1_u = 0.44;
-dx_1 = (L_1_u - L_1_l)/50;
+L_1_l = 0.5;
+L_1_u = 1.5;
+dx_1 = (L_1_u - L_1_l)/100;
 
-L_2_l = 0.0;
-L_2_u = 0.23;
-dx_2 = (L_2_u - L_2_l)/50;
+L_2_l = 0.5;
+L_2_u = 1.5;
+dx_2 = (L_2_u - L_2_l)/100;
 
 % Dimensiones \mathbf{x} = [x_1 x_2]^T
 x_1 = (L_1_l:dx_1:L_1_u)';
@@ -48,7 +48,7 @@ for i = 41 : -10 : 1
     Mu = L_i_l + (L_i_u - L_i_l).*rand(n_def, 2); % Random means for each component
     
     % Matriz de Covarianza
-    Var_def = 0.00005*i;
+    Var_def = 0.0005*i;
     Cov_1 = [Var_def, 0;
              0, Var_def];
     Cov_2 = [Var_def, -Var_def/2;
@@ -106,25 +106,25 @@ Par_struct.L_i_u = L_i_u;
 
 [phi_k_reg, f_k_reg, h_k_reg] = FourierCoef_RefPDF(Phi_hat_x(:,1), Par_struct);
 
-%% 
-N = 100;             % Número de puntos de trayectoria óptima
+%% Optimal problem parameters
+
+N = 200;             % Número de puntos de trayectoria óptima
 t_f = 10;           %Tiempo final por iteración
 T_s = t_f/N;                  % Tiempo de muestreo
 t = (0:T_s:t_f)';   %Vector de tiempo por iteración
 
 % Peso sobre controles
-% R = [5e-1, 0;
-%      0, 5e-1]*(1/T_s); %N = 100
-% R = [8e-0, 0;
-%      0, 8e-0 ]*(1/T_s); %N = 200
-R = [1e-0, 0;
-     0, 1e-0 ]*(1/T_s); % N = 100 V2
+% R = [5e-3, 0;
+%      0, 5e-3]*(1/T_s); %N = 200; Cotas en el Jerk
+
+R = [3e-04, 0;
+     0, 3e-04]*(1/T_s); %N = 200; 7e-5
 
 % Peso sobre métrica ergódica
 gamma = 1;
 
 % Estado inicial z = [z_1; z_2; z_3; z_4] = [x_1; x_1_dot; x_2; x_2_dot]
-z_0 = [0.15; 0; 0.0; 0]; 
+z_0 = [0.5; 0; 0.5; 0]; 
 
 %Pre-cálculo de Lambda
 p = 2; %norma 2
@@ -219,10 +219,9 @@ Lambda_k = (1 + vecnorm(K_cal, p, 1)').^(-(n + 1)/2);
 % opti.subject_to( L_2_l <= z(3,:) <= L_2_u );    % x_2 boundaries
 % 
 % % constrain the derivate of control inputs
-% for k = 1:N-1
-%     % opti.subject_to( abs(u(:,k+1) - u(:,k))/T_s <= 18 );
-%     opti.subject_to( abs(u(:,k+1) - u(:,k))/T_s <= 30 ); %25
-% end
+% % for k = 1:N-1
+% %     opti.subject_to( abs(u(:,k+1) - u(:,k))/T_s <= 300 ); % 15 N
+% % end
 % 
 % % Solver definition
 % % p_opts = struct('expand',true);
@@ -246,14 +245,14 @@ Lambda_k = (1 + vecnorm(K_cal, p, 1)').^(-(n + 1)/2);
 % 
 % %Solving the optimization problem over the horizon N
 % solution = opti.solve();
-
-%% Function mapping from initial condition z0 to the optimal control action
-%(first u of the N control actions). M contains IPOPT method embedded and
-%integration method RK4
-
-UR_ipopt100V2 = opti.to_function('UR_ipopt100V2',...
-            {z_0_sym, phi_k_sym}, {z, u},...
-            {'z_0','phi_k'}, {'z','u'});
+% 
+% % Function mapping from initial condition z0 to the optimal control action
+% %(first u of the N control actions). M contains IPOPT method embedded and
+% %integration method RK4
+% 
+% Erg_traj_ipopt = opti.to_function('Erg_traj_ipopt',...
+%             {z_0_sym, phi_k_sym}, {z, u},...
+%             {'z_0','phi_k'}, {'z','u'});
 
 %% %%%%%%%%%%%%% Casadi Problem Setup FATROP %%%%%%%%%%%%%%%%%%
 
@@ -426,10 +425,10 @@ UR_ipopt100V2 = opti.to_function('UR_ipopt100V2',...
 
 %% Saving and loading casadi function object
 
-% UR_ipopt100V2.save('UR_ipopt100V2.casadi');
+% Erg_traj_ipopt.save('Erg_traj_ipopt.casadi');
 % M_fatrop.save('M_fatrop.casadi');
 
-% UR_ipopt100V2 = Function.load('UR_ipopt100V2.casadi');
+% Erg_traj_ipopt = Function.load('Erg_traj_ipopt.casadi');
 % M_fatrop = Function.load('M_fatrop.casadi');
 
 %% vector to add more points on the trajectory and get more data from sensor
@@ -456,7 +455,7 @@ phi_k_act = phi_k_reg;
 
 for i = 1:n_iter
 
-    [Z, U] = UR_ipopt100V2(z_act, phi_k_act);
+    [Z, U] = Erg_traj_ipopt(z_act, phi_k_act);
     Z = full(Z)';
     U = full(U)';
 

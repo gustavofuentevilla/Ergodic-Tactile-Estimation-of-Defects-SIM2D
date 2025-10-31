@@ -1,12 +1,12 @@
 % Primera ejecución
 % import casadi.*
-% M = Function.load('/home/gustavo-fuentevilla/MATLAB/Tactile_Defects_Localization/Casadi_Formulation_ExplTask/M_N200.casadi');
+% Erg_traj_ipopt = Function.load('/home/gustavo-fuentevilla/MATLAB/Tactile_Defects_Localization/Casadi_Formulation_ExplTask/Erg_traj_ipopt.casadi');
 
 % for run_idx = 1:100
 
 % Resto de ejecuciones
 close all
-clearvars -except M %run_idx
+clearvars -except Erg_traj_ipopt %run_idx
 clc
 
 %% Parámetros del espacio de búsqueda U = [L_1_l, L_1_u] \times [L_2_l, L_2_u]
@@ -41,9 +41,9 @@ Omega = [reshape(x_1_grid,[],1), reshape(x_2_grid,[],1)];
 
 %% Defects definition
 
-n_def = 10; %idx_tmp(run_idx); % Greater than 0
+n_def = 3; %idx_tmp(run_idx); % Greater than 0
 
-% [Mu, Sigma, r_elips_Phi] = DefectsGen(n_def, L_i_l, L_i_u);
+[Mu, Sigma, r_elips_Phi] = DefectsGen(n_def, L_i_l, L_i_u);
 
 % run_idx = 91;
 % % Para replicar los resultados con defectos ya existentes en /results/
@@ -95,11 +95,11 @@ T_s = t_f/N;                  % Tiempo de muestreo
 t = (0:T_s:t_f)';   %Vector de tiempo por iteración
 
 % Peso sobre controles
-R = [7e-5, 0;
-     0, 7e-5]*(1/T_s); % N = 200
+% R = [7e-5, 0;
+%      0, 7e-5]*(1/T_s); % N = 200
 
 % Peso sobre métrica ergódica
-gamma = 1;
+% gamma = 1;
 
 % Estado inicial z = [z_1; z_2; z_3; z_4] = [x_1; x_1_dot; x_2; x_2_dot]
 z_0 = [0.5; 0; 0.5; 0]; 
@@ -239,7 +239,7 @@ Lambda_k = (1 + vecnorm(K_cal, p, 1)').^(-(n + 1)/2);
 t_spline = (0:0.01:t_f)'; %Time vector por spline in one iteration
 
 %% Loop for the Search task
-n_iter_max = 10;
+n_iter_max = 6;
 
 % Registers
 z_reg = zeros(N+1, 4, n_iter_max);
@@ -318,8 +318,7 @@ Par_PDF.MaxVarCons = nu_p*(L_1 + L_2) + (1 - nu_p)*...
 
 for i = 1:n_iter_max
 
-    [Z, U] = M(z_act, phi_k_act); %Soluciones
-    %[Z, U] = M(z_act, u_act, phi_k_act); 
+    [Z, U] = Erg_traj_ipopt(z_act, phi_k_act); % Trayectoria Ergodica
     Z = full(Z)';
     U = full(U)';
 
@@ -493,12 +492,11 @@ for i = 1:n_iter
 
 end
 
-%% Saving variables (Except M casadi function)
+%% Saving variables (Except the casadi function)
 
 % Normal for-loop
 
-% save(sprintf("Results/output_%d.mat",run_idx), "-regexp", "^(?!(M)$).");
-
+% save(sprintf("Results/output_%d.mat",run_idx), "-regexp", "^(?!(Erg_traj_ipopt)$).");
 
 % end
 

@@ -1,7 +1,7 @@
 %% Charts
 
 close all
-clearvars -except M
+clearvars -except Erg_traj_ipopt
 clc
 
 % %% 
@@ -10,7 +10,7 @@ clc
 % There is sometimes an apparent divergence in Explotation stage but
 % it converges in forward iterations, however, it can take too long
 % 72, 98 Extreme case xd, didn't found one defect
-load("Results/output_30.mat") 
+load("Results/output.mat") 
 
 %% Definitions
 % For Fig3
@@ -464,7 +464,7 @@ title("Minimum variation constraint as a function of $KL$ divergence")
 xlabel("Information [nat]")
 ylabel("Distance [m]")
 xtickformat('%.1f')
-% ytickformat('%.1f')
+ytickformat('%.2f')
 grid on
 % hold on
 % plot(D_KL_bar_u,nu_p*MaxVarCons,"sq","MarkerSize",14,"LineWidth",2.5)
@@ -475,3 +475,136 @@ set(findall(fig26h,'-property','TickLabelInterpreter'), ...
     'TickLabelInterpreter','latex')
 set(findall(fig26h, "-property", "FontSize"), "FontSize", 20)
 
+%% Publication Figs
+
+% Calcula el número de filas dependiendo del número de iteraciones
+% suponiendo un número de columnas totales
+FoundDef_color = hex2rgb("#d94801"); %hex2rgb("#08519c");
+NotFoundDef_color = "yellow";
+RealDef_color = "black";
+Trayectory_color = hex2rgb("#d94801");  %hex2rgb("#045a8d"); %"black";
+
+columnas = 6;
+filas = ceil((n_iter + 1)/columnas);
+
+fig30h = figure(30);
+layout30h = tiledlayout(fig30h, filas, columnas);
+
+for i = 1:n_iter
+
+    nexttile(layout30h)
+
+    probmap_ax = pcolor(x_1_grid, x_2_grid, ...
+            reshape(Phi_hat_x_reg(:,:,i), length(x_2), length(x_1)),...
+            "EdgeColor","none", "FaceColor","interp");
+    title("Iteration " + i)
+    % xlabel('$x_1$ [m]')
+    % ylabel('$x_2$ [m]')
+    xtickformat('%.1f')
+    ytickformat('%.1f')
+    axis equal tight
+    xlim([L_1_l, L_1_u])
+    ylim([L_2_l, L_2_u])
+    grid on
+    hold on
+    for j = 1:n_def
+        realdef_ax(j) = plot(Elipse_Phi(:,1,j), Elipse_Phi(:,2,j),...
+                            "-.", "LineWidth", 3,...
+                            "Color", RealDef_color);
+    end
+    plot(Mu(:,1),Mu(:,2),'.','MarkerSize',15, "Color", RealDef_color)
+    traj_ax = plot(X_e_reg(:,1,i), X_e_reg(:,2,i),...
+                    "Color", Trayectory_color,'LineWidth',3);
+    traj0_ax = plot(X_e_reg(1,1,i), X_e_reg(1,2,i),'sq', "Color",...
+                    Trayectory_color, 'MarkerSize',7,'LineWidth',10);
+    
+    % lgd = legend([probmap_ax, realdef_ax(1), traj_ax, traj0_ax],...
+    %         {"$\hat{\Phi}(\mathbf{x})$",...
+    %          "Real" + newline + "defects",...
+    %          "$\mathbf{X_e}(t)$",...
+    %          "$\mathbf{X_e}(0)$"});
+    % lgd.Location = "northeastoutside";
+
+    hold off
+end
+
+nexttile(layout30h)
+
+% pcolor(x_1_grid, x_2_grid, reshape(Phi_hat_x_reg(:,:,n_iter+1),...
+%        length(x_2), length(x_1)),...
+%        "EdgeColor","none", "FaceColor","interp")
+title("Result",'Interpreter','latex')
+% xlabel('$x_1$ [m]','Interpreter','latex')
+% ylabel('$x_2$ [m]','Interpreter','latex')
+xtickformat('%.1f')
+ytickformat('%.1f')
+axis square
+xlim([L_1_l, L_1_u])
+ylim([L_2_l, L_2_u])
+hold on
+
+%Grafica las elipses de defectos reales
+for j = 1:n_def
+    R_def_ax(j) = plot(Elipse_Phi(:,1,j), Elipse_Phi(:,2,j), "-.",...
+                        "LineWidth", 3, "Color", RealDef_color);
+end
+
+%Grafica los centroides
+plot(Mu(:,1),Mu(:,2),'.r','MarkerSize',15)
+plot(Mu_found(:,1), Mu_found(:,2), '+', ...
+    'LineWidth', 3, 'color', FoundDef_color);
+if ~Estim_sol(end).flag_done 
+    plot(Mu_not_found(:,1), Mu_not_found(:,2), '+', ...
+        'LineWidth', 3, 'color', NotFoundDef_color);
+end
+hold off
+
+%Grafica los defectos encontrados (si lo hay)
+if n_def_found >= 1
+    for j = 1:n_def_found
+        F_def_ax(j) = patch(Elipse_Phi_hat(:,1,j), Elipse_Phi_hat(:,2,j), ...
+            FoundDef_color,...
+            'LineWidth', 3, 'EdgeColor', FoundDef_color, "FaceAlpha",0.2);
+    end
+end
+
+%Grafica los defectos no encontrados (si los hay)
+if ~Estim_sol(end).flag_done 
+        for i = 1:n_def_not_found
+            NF_def_ax(i) = patch(Elipse_not_found(:,1,i), Elipse_not_found(:,2,i), ...
+                NotFoundDef_color,'LineWidth', 3, 'EdgeColor', ...
+                NotFoundDef_color, "FaceAlpha",0.2);
+        end
+        notfoundplot = 1;
+end
+
+% Asignar leyendas
+% if ~Estim_sol(end).flag_done
+%     lgd = legend([R_def_ax(1)  F_def_ax(1) NF_def_ax(1)],...
+%             {'Real Defects','Found Defects', 'Not Found Defects'});
+% else
+%     lgd = legend([R_def_ax(1)  F_def_ax(1)],...
+%             {"Real" + newline + "defects","Found" + newline + "Defects"});
+% end
+% 
+% lgd.Location = 'northeastoutside';
+
+layout30h.TileSpacing = 'loose';
+layout30h.Padding = 'tight';
+
+% Remueve los números del eje Y en las últimas 5 gráficas
+layout30h.Children(1).YTick = [];
+layout30h.Children(2).YTick = [];
+layout30h.Children(3).YTick = [];
+layout30h.Children(4).YTick = [];
+layout30h.Children(5).YTick = [];
+
+xlabel(layout30h, '$x_1$ [m]','Interpreter','latex', "FontSize", 22)
+ylabel(layout30h, '$x_2$ [m]','Interpreter','latex', "FontSize", 22)
+
+set(findall(fig30h,'-property','Interpreter'),'Interpreter','latex') 
+set(findall(fig30h,'-property','TickLabelInterpreter'), ...
+    'TickLabelInterpreter','latex')
+set(findall(fig30h, "-property", "FontSize"), "FontSize", 22)
+%%
+colormap(brewermap(15,"-Blues"))
