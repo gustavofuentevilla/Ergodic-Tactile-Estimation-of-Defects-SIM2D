@@ -262,7 +262,7 @@ flag_done = isempty(Mu);
 
 % If we've done, export a zero PDF 
 if flag_done
-    Phi_hat_x_next = zeros(height(Omega));
+    Phi_hat_x_next = zeros(height(Omega), 1);
     Estim_sol.GMModel = [];
 else % IF we've not done, compute and export next GMM
     % Next PDF
