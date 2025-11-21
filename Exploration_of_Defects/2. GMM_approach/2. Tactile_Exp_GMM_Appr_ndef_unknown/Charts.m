@@ -134,24 +134,11 @@ set(findall(fig2h, "-property", "FontSize"), "FontSize", 18)
 
 %% 2-D Charts
 
-if n_iter <= 2
-    aux = 1;
-elseif n_iter > 2 && n_iter <= 5
-    aux = 2;
-elseif n_iter > 5 && n_iter <= 8
-    aux = 3;
-elseif n_iter > 8 && n_iter <= 11
-    aux = 4;
-elseif n_iter > 11 && n_iter <= 14
-    aux = 5;
-elseif n_iter > 14 && n_iter <= 17
-    aux = 6;
-elseif n_iter > 17 && n_iter <= 20
-    aux = 7;
-end
+columnas = 3;
+filas = ceil((n_iter + 1)/columnas);
 
 fig3h = figure(3);
-subplot(aux,3,1)
+subplot(filas, columnas, 1)
 pcolor(x_1_grid, x_2_grid, reshape(Phi_x, length(x_2), length(x_1)),...
     "FaceColor","interp","EdgeColor","none")
 xlim([L_1_l, L_1_u])
@@ -170,7 +157,7 @@ plot(Mu(:,1), Mu(:,2), ".", 'MarkerSize', 8)
 hold off
 legend('$\Phi(\mathbf{x})$','Location', 'northeastoutside')
 for i = 1:n_iter
-    subplot(aux,3,i+1)
+    subplot(filas, columnas, i+1)
     pcolor(x_1_grid, x_2_grid, ...
             reshape(Phi_hat_x_reg(:,:,i), length(x_2), length(x_1)),...
             "EdgeColor","none", "FaceColor","interp")
@@ -265,15 +252,18 @@ end
 
 %% Charts about the GMM training
 
+columnas = 6;
 if Estim_sol(n_iter).flag_done
     limit_id = n_iter + 1;
+    filas = ceil((n_iter + 1)/columnas);
 else
     limit_id = n_iter;
+    filas = ceil((n_iter)/columnas);
 end
 
 for i = 1:limit_id
     figure(21)
-    subplot(aux,3,i)
+    subplot(filas, columnas, i)
     surf(x_1_grid, x_2_grid, ...
         reshape(Phi_hat_x_reg(:,:,i), length(x_2), length(x_1)),...
         'EdgeColor','interp','FaceColor','interp')
@@ -287,25 +277,12 @@ for i = 1:limit_id
             'Interpreter','latex','Location','best')
 end
 
-if n_iter <= 3
-    aux_2 = 1;
-elseif n_iter > 3 && n_iter <= 6
-    aux_2 = 2;
-elseif n_iter > 6 && n_iter <= 9
-    aux_2 = 3;
-elseif n_iter > 9 && n_iter <= 12
-    aux_2 = 4;
-elseif n_iter > 12 && n_iter <= 15
-    aux_2 = 5;
-elseif n_iter > 15 && n_iter <= 18
-    aux_2 = 6;
-elseif n_iter > 18 && n_iter <= 21
-    aux_2 = 7;
-end
+columnas = 3;
+filas = ceil((n_iter)/columnas);
 
 for i = 1:n_iter
     figure(22)
-    subplot(aux_2,3,i)
+    subplot(filas, columnas, i)
     hist3(Estim_sol(i).Data_Xe_hist_V,'CDataMode','auto', ...
         'FaceColor','interp',...
         "EdgeColor","none",'Nbins',[length(x_1)-1, length(x_2)-1])
@@ -319,7 +296,7 @@ for i = 1:n_iter
     grid on
 
     figure(23)
-    subplot(aux_2,3,i)
+    subplot(filas, columnas, i)
     scatter3(X_e_spline_reg(:,1,i), X_e_spline_reg(:,2,i), ...
             V_Xe_reg(:,:,i), 10, "black")
     xlim([L_1_l, L_1_u])
@@ -550,7 +527,7 @@ for j = 1:n_def
 end
 
 %Grafica los centroides
-plot(Mu(:,1),Mu(:,2),'.r','MarkerSize',15)
+plot(Mu(:,1),Mu(:,2),'.','MarkerSize',15,"Color",RealDef_color)
 plot(Mu_found(:,1), Mu_found(:,2), '+', ...
     'LineWidth', 3, 'color', FoundDef_color);
 if ~Estim_sol(end).flag_done 
