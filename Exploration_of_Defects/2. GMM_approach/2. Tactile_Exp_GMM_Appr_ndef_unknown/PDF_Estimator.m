@@ -51,7 +51,8 @@ Data_current = [X_e(idx_V,:), Preprocessed_V(idx_V)];
 Data = [Prev_Data; 
         Data_current];
 
-% Removing data related to already found defects
+%(comment for no removing case):
+% Removing data related to already found defects 
 if ~isempty(Prev_Mu_found)        
     % If some defect has been found
     % Remove data points that are inside the already found defects
@@ -63,6 +64,8 @@ end
 V_int = round(Data(:,3));    
 % Repeat elements on spatial domain (trajectory points)
 Data_Xe_hist_V = repelem(Data(:,1:2), V_int, 1); 
+% Without repeating position elements:
+% Data_Xe_hist_V = Data(:,1:2); 
 
 %% Check for No Data Case
 % If there is no data above the threshold, return the same distribution for
@@ -144,6 +147,8 @@ if ~flag_OneCluster
         % Use the Optimal number of components from the last iteration in the
         % exploration phase minus the number of defects already found (if any)
         clust_eval = [];
+        % (FOR NO REMOVE Testing):
+        % numComponents = Prev_numComponents;
         numComponents = Prev_numComponents - size(Prev_Mu_found, 1);
         Model = GMM_EM(Data_Xe_hist_V, numComponents,...
                        "Max_iter", 500, "Min_var", 1e-10);
@@ -157,10 +162,9 @@ Priors = Model.Priors;
 
 %% Kullback–Leibler divergence (Relative entropy)
 % Calculate KL Divergence from Q (Prior) to P (Posterior)
-Q = Prev_Phi_hat_x;
-P = pdf(gmdistribution(Mu, Sigma, Priors), Omega);
-idx_P_Q = (Q ~= 0) & (P ~= 0);
-D_KL = sum( P(idx_P_Q) .* log(P(idx_P_Q) ./ Q(idx_P_Q)) )*dx_1*dx_2;
+Q = Prev_Phi_hat_x + 1e-10;
+P = pdf(gmdistribution(Mu, Sigma, Priors), Omega) + 1e-10;
+D_KL = sum( P .* log(P ./ Q) )*dx_1*dx_2;
 
 %% Compute MinVariation constraint as a function of KL divergence
 
@@ -250,7 +254,8 @@ if any(Cond)
     Def_found.Mu = Mu(idx_def,:);
     Def_found.Sigma = Sigma_a(:,:,idx_def);
     Def_found.Priors = Priors(idx_def);
-    % Removing defect parameters from GMM solution
+    %(comment for no removing case)
+    % Removing defect parameters from GMM solution 
     Mu(idx_def,:) = [];
     Sigma(:,:,idx_def) = [];
     Sigma_a(:,:,idx_def) = [];
@@ -258,7 +263,13 @@ if any(Cond)
 end
 
 % Check if we've done
-flag_done = isempty(Mu);
+flag_done = isempty(Mu); %(comment for no removing case)
+
+%(UNcomment for no removing case)
+% flag_done = false;
+% if numComponents == height(Def_found.Mu)
+%     flag_done = true;
+% end
 
 % If we've done, export a zero PDF 
 if flag_done

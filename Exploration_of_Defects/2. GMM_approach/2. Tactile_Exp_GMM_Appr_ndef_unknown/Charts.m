@@ -4,13 +4,80 @@ close all
 clearvars -except Erg_traj_ipopt
 clc
 
-% %% 
-% -- bad number of components evaluation
-% 1, 5, 7, 10, 41, 43(close), 53, 65, 92, 93, 96 -- More than 10 iterations
-% There is sometimes an apparent divergence in Explotation stage but
-% it converges in forward iterations, however, it can take too long
-% 72, 98 Extreme case xd, didn't found one defect
-load("Results/output.mat") 
+% load("Test_tmp/output.mat") 
+
+% load("Results/output_Norepeat.mat") % No repeating sim
+load("Test2/Case1/10Def/X0_20/output_3.mat") % No removing sim
+
+%% Reconstrucción de distribución empírica y métrica ergódica
+
+Varepsilon_reg = zeros(length(t), 1, n_iter);
+C_x_reg = zeros(height(Omega), length(t), n_iter);
+
+for r = 1:n_iter
+    c_k = zeros(K^n, 1);
+    C_x = zeros(height(Omega), 1);
+    for i = 1:length(t)
+
+        % Compute Fourier Functions and coefficients on the new position
+        f_k_traj = prod(cos( K_cal'.*pi.*(X_e_reg(i,:,r) - L_i_l)./(L_i_u - L_i_l) ), 2) ./ h_k_reg ;
+        c_k = c_k + (f_k_traj*T_s)/(t_f) ; %i*T_s %t_f
+
+        %Ergodic metric
+        Varepsilon = sum( Lambda_k .* (c_k - phi_k_REG(:,:,r)).^2 );
+
+        %Empirical distribution reconstruction
+        C_x_i = zeros(height(Omega), 1);
+        for j = 1:K^n
+            C_x_i = C_x_i + c_k(j)*f_k_reg(:,j);
+        end
+
+        %Se suman todas las distribuciones generadas en cada muestra
+        C_x = C_x + C_x_i;
+
+        %Se registra
+        C_x_reg(:,i,r) = C_x;
+        Varepsilon_reg(i,:,r) = Varepsilon;
+
+    end
+
+end
+
+
+%% Pre-Procesing for charts
+
+t_total = zeros(n_iter*(length(t)-1) + 1, 1);
+X_e_total = zeros(n_iter*(length(t)-1) + 1, 2);
+X_e_dot_total = zeros(n_iter*(length(t)-1) + 1, 2);
+Varepsilon_total = zeros(n_iter*(length(t)-1) + 1, 1);
+u_total = zeros(n_iter*(length(t)-1) + 1, 2);
+
+t_spline_total = zeros(n_iter*(length(t_spline)-1) + 1, 1);
+X_e_spline_total = zeros(n_iter*(length(t_spline)-1) + 1, 2);
+X_e_dot_spline_total = zeros(n_iter*(length(t_spline)-1) + 1, 2);
+u_spline_total = zeros(n_iter*(length(t_spline)-1) + 1, 2);
+V_Xe_total = zeros(n_iter*(length(t_spline)-1) + 1, 1);
+
+for i = 1:n_iter
+
+    id_init = ((i - 1)*(length(t)-1) + 1); %1,101,..
+    id_last = (i*(length(t)-1) + 1);        %101, 201,...
+
+    t_total( id_init:id_last ) = (i - 1)*t(end) + t;
+    X_e_total( id_init:id_last, : ) = X_e_reg(:,:,i);
+    X_e_dot_total( id_init:id_last, : ) = X_e_dot_reg(:,:,i);
+    Varepsilon_total( id_init:id_last, : ) = Varepsilon_reg(:,:,i);
+    u_total( id_init:id_last, : ) = [u_reg(:,:,i); [NaN, NaN]];
+    
+    id_init_spline = ((i - 1)*(length(t_spline)-1) + 1);
+    id_last_spline = (i*(length(t_spline)-1) + 1);
+    t_spline_total( id_init_spline:id_last_spline ) = (i - 1)*t_spline(end) + t_spline;
+    X_e_spline_total( id_init_spline:id_last_spline, : ) = X_e_spline_reg(:,:,i);
+    X_e_dot_spline_total( id_init_spline:id_last_spline, : ) = X_e_dot_spline_reg(:,:,i);
+    u_spline_total( id_init_spline:id_last_spline, : ) = [u_spline_reg(:,:,i); [NaN, NaN]];
+    V_Xe_total( id_init_spline:id_last_spline, : ) = V_Xe_reg(:,:,i);
+
+end
 
 %% Definitions
 % For Fig3
@@ -89,7 +156,9 @@ func = D_KL_tmp*nu_p*MaxVarCons/D_KL_bar_u;
 func(func <= Variation_thres_eps) = Variation_thres_eps;
 func(func >= nu_p*MaxVarCons) = nu_p*MaxVarCons;
 
-%%
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%% CHARTS xd %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 fig1h = figure(1);
 layout1h = tiledlayout(fig1h, 3, 1);
@@ -252,7 +321,7 @@ end
 
 %% Charts about the GMM training
 
-columnas = 6;
+columnas = 3;
 if Estim_sol(n_iter).flag_done
     limit_id = n_iter + 1;
     filas = ceil((n_iter + 1)/columnas);
@@ -262,7 +331,7 @@ else
 end
 
 for i = 1:limit_id
-    figure(21)
+    fig21h = figure(21);
     subplot(filas, columnas, i)
     surf(x_1_grid, x_2_grid, ...
         reshape(Phi_hat_x_reg(:,:,i), length(x_2), length(x_1)),...
@@ -281,21 +350,21 @@ columnas = 3;
 filas = ceil((n_iter)/columnas);
 
 for i = 1:n_iter
-    figure(22)
+    fig22h = figure(22);
     subplot(filas, columnas, i)
     hist3(Estim_sol(i).Data_Xe_hist_V,'CDataMode','auto', ...
         'FaceColor','interp',...
         "EdgeColor","none",'Nbins',[length(x_1)-1, length(x_2)-1])
     xlim([L_1_l, L_1_u])
     ylim([L_2_l, L_2_u])
-    title("GMM fit, iteration " + i,'Interpreter','latex')
+    title("Histogram for GMM fitting, iteration " + i,'Interpreter','latex')
     legend("Training data",'Interpreter','latex', 'Location','best')
     xlabel('$x_1$ [m]','Interpreter','latex')
     ylabel('$x_2$ [m]','Interpreter','latex')
-    zlabel('Measurement int','Interpreter','latex')
+    % zlabel('Measurement int','Interpreter','latex')
     grid on
 
-    figure(23)
+    fig23h = figure(23);
     subplot(filas, columnas, i)
     scatter3(X_e_spline_reg(:,1,i), X_e_spline_reg(:,2,i), ...
             V_Xe_reg(:,:,i), 10, "black")
@@ -308,6 +377,21 @@ for i = 1:n_iter
     zlabel('$V_k$ [N]','Interpreter','latex')
     grid on
 end
+
+set(findall(fig21h,'-property','Interpreter'),'Interpreter','latex') 
+set(findall(fig21h,'-property','TickLabelInterpreter'), ...
+    'TickLabelInterpreter','latex')
+set(findall(fig21h, "-property", "FontSize"), "FontSize", 20)
+
+set(findall(fig22h,'-property','Interpreter'),'Interpreter','latex') 
+set(findall(fig22h,'-property','TickLabelInterpreter'), ...
+    'TickLabelInterpreter','latex')
+set(findall(fig22h, "-property", "FontSize"), "FontSize", 20)
+
+set(findall(fig23h,'-property','Interpreter'),'Interpreter','latex') 
+set(findall(fig23h,'-property','TickLabelInterpreter'), ...
+    'TickLabelInterpreter','latex')
+set(findall(fig23h, "-property", "FontSize"), "FontSize", 20)
 
 %% Real PDF  vs  Estimated PDF: Resultados
 
@@ -456,7 +540,7 @@ set(findall(fig26h, "-property", "FontSize"), "FontSize", 20)
 
 % Calcula el número de filas dependiendo del número de iteraciones
 % suponiendo un número de columnas totales
-FoundDef_color = hex2rgb("#d94801"); %hex2rgb("#08519c");
+FoundDef_color = hex2rgb("#238b45"); %hex2rgb("#d94801");
 NotFoundDef_color = "yellow";
 RealDef_color = "black";
 Trayectory_color = hex2rgb("#d94801");  %hex2rgb("#045a8d"); %"black";
@@ -466,6 +550,11 @@ filas = ceil((n_iter + 1)/columnas);
 
 fig30h = figure(30);
 layout30h = tiledlayout(fig30h, filas, columnas);
+
+for i = 1:n_iter
+    SigF_tmp(i).Sigma_found = Estim_sol(i).Sigma_found;
+    MuF_tmp(i).Mu_found = Estim_sol(i).Mu_found;
+end
 
 for i = 1:n_iter
 
@@ -490,6 +579,40 @@ for i = 1:n_iter
                             "Color", RealDef_color);
     end
     plot(Mu(:,1),Mu(:,2),'.','MarkerSize',15, "Color", RealDef_color)
+
+    % ----Código para graficar los defectos ya encontrados en la i-esima it
+    if i > 1
+        nbDrawingSeg = 100;
+        tmp_vec = linspace(-pi, pi, nbDrawingSeg)';
+        Sigma_tmp = cat(3, SigF_tmp(1:i-1).Sigma_found);
+        Mu_tmp = cat(1, MuF_tmp(1:i-1).Mu_found);
+        if ~isempty(Sigma_tmp)
+            stdev_tmp = zeros(size(Sigma_tmp));
+            Sigma_ast_tmp = zeros(size(Sigma_tmp));
+            Elipse_tmp = zeros(height(tmp_vec), 2, size(Sigma_tmp, 3));
+            for j = 1:size(Sigma_tmp, 3)
+                stdev_tmp(:,:,j) = sqrtm(Sigma_tmp(:,:,j));
+                Sigma_ast_tmp(:,:,j) = 3*stdev_tmp(:,:,j);
+                Elipse_tmp(:,:,j) = [cos(tmp_vec), sin(tmp_vec)]* ...
+                                        real(Sigma_ast_tmp(:,:,j)) +...
+                                        repmat(Mu_tmp(j,:), nbDrawingSeg, 1);
+            end
+            for j = 1:size(Sigma_tmp, 3)
+                realdef_ax(j) = plot(Elipse_tmp(:,1,j), Elipse_tmp(:,2,j),...
+                                    "-.", "LineWidth", 3,...
+                                    "Color", FoundDef_color);
+            end
+            plot(Mu_tmp(:,1),Mu_tmp(:,2),'.',...
+                'MarkerSize',15, "Color", FoundDef_color)
+            for j = 1:size(Sigma_tmp, 3)
+                F_def_ax(j) = patch(Elipse_tmp(:,1,j), Elipse_tmp(:,2,j),...
+                                    FoundDef_color, 'LineWidth', 3,...
+                                    'EdgeColor', FoundDef_color,...
+                                    "FaceAlpha",0.2);
+            end
+        end
+    end
+
     traj_ax = plot(X_e_reg(:,1,i), X_e_reg(:,2,i),...
                     "Color", Trayectory_color,'LineWidth',3);
     traj0_ax = plot(X_e_reg(1,1,i), X_e_reg(1,2,i),'sq', "Color",...
@@ -570,11 +693,12 @@ layout30h.TileSpacing = 'loose';
 layout30h.Padding = 'tight';
 
 % Remueve los números del eje Y en las últimas 5 gráficas
-layout30h.Children(1).YTick = [];
-layout30h.Children(2).YTick = [];
-layout30h.Children(3).YTick = [];
-layout30h.Children(4).YTick = [];
-layout30h.Children(5).YTick = [];
+
+% layout30h.Children(1).YTick = [];
+% layout30h.Children(2).YTick = [];
+% layout30h.Children(3).YTick = [];
+% layout30h.Children(4).YTick = [];
+% layout30h.Children(5).YTick = [];
 
 xlabel(layout30h, '$x_1$ [m]','Interpreter','latex', "FontSize", 22)
 ylabel(layout30h, '$x_2$ [m]','Interpreter','latex', "FontSize", 22)

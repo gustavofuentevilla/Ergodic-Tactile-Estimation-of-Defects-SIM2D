@@ -13,7 +13,7 @@ n = 2; % Dimension of Search Space
 
 
 % Registro de Covarianzas genéricas (3 formas de defectos)
-Var_def = 0.0005;
+Var_def = 0.0005/3;
 
 Gen_Cov = zeros(n,n,3);
 Gen_Cov(:,:,1) = [Var_def, Var_def/2;
@@ -51,7 +51,7 @@ r_elips_sorted = sort(reshape(r_elips_Phi,[], 1));
 Verify_Mu_dist = true;
 while(Verify_Mu_dist)
 
-    offset = 0.05; 
+    offset = 0.05/3; 
     Mu = [];
     for i = 1:n_def
         Mu_tmp = (L_i_l + offset) + ((L_i_u - offset) - ...
@@ -66,10 +66,9 @@ while(Verify_Mu_dist)
     % Calculate the pairwise distances between the means
     Mu_dist = pdist(Mu);
     
-    % Distance beetween Mu's should be less than the two largest ellipse
-    % axes to ensure that defects doesn't overlap
-    Verify_Mu_dist = any(Mu_dist < ...
-                        (r_elips_sorted(end) + r_elips_sorted(end-1)));
+    % Distance beetween Mu's should be greater than 2.5 times the largest
+    % ellipse axes to ensure that defects doesn't overlap
+    Verify_Mu_dist = any(Mu_dist < 2.8*r_elips_sorted(end));
 
 end
 

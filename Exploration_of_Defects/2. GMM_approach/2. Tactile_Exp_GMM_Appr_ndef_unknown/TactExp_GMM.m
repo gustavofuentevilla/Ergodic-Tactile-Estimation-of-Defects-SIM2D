@@ -1,17 +1,17 @@
 % Primera ejecución
 % import casadi.*
-% Erg_traj_ipopt = Function.load('/home/gustavo-fuentevilla/MATLAB/Tactile_Defects_Localization/Casadi_Formulation_ExplTask/Erg_traj_ipopt.casadi');
-
-% for run_idx = 1:100
+% Erg_traj_ipopt = Function.load('/home/gustavo-fuentevilla/MATLAB/Ergodic_Tactile_Estimation_of_Defects_SIM2D/Casadi_Formulation_ExplTask/Erg_traj_ipopt.casadi');
 
 % Resto de ejecuciones
 close all
-clearvars -except Erg_traj_ipopt %run_idx
+clearvars -except Erg_traj_ipopt
 clc
 
-%% Parámetros del espacio de búsqueda U = [L_1_l, L_1_u] \times [L_2_l, L_2_u]
+import casadi.*
 
-%idx_tmp = repelem( (1:10)' ,repelem(10, 10));
+rng(19, 'twister'); 
+
+%% Parámetros del espacio de búsqueda U = [L_1_l, L_1_u] \times [L_2_l, L_2_u]
 
 n = 2; % Número de dimensiones espaciales
 
@@ -41,13 +41,22 @@ Omega = [reshape(x_1_grid,[],1), reshape(x_2_grid,[],1)];
 
 %% Defects definition
 
-n_def = 3; %idx_tmp(run_idx); % Greater than 0
+n_def = 3;
 
-[Mu, Sigma, r_elips_Phi] = DefectsGen(n_def, L_i_l, L_i_u);
+% [Mu, Sigma, r_elips_Phi] = DefectsGen(n_def, L_i_l, L_i_u);
 
-% run_idx = 91;
-% % Para replicar los resultados con defectos ya existentes en /results/
-% load(sprintf("Results/output_%d.mat",run_idx), "Mu", "Sigma", "r_elips_Phi")
+Mu = [0.7794, 1.3710;
+      0.8808, 0.5842;
+      1.1357, 1.2847];
+
+Cov_1 = 1e-3 * [0.5, 0.25; 0.25, 0.5];
+Cov_2 = 1e-3 * [0.5, -0.25; -0.25, 0.5];
+Cov_3 = 1e-3 * [0.5, 0.0; 0.0, 0.5];
+    
+Sigma = cat(3, Cov_1, Cov_2, Cov_3);
+
+r_elips_Phi = [0.0474, 0.0474, 0.0671;
+               0.0822, 0.0822, 0.0671];
 
 gm_dist = gmdistribution(Mu, Sigma);% , proporciones);
 
@@ -239,7 +248,7 @@ Lambda_k = (1 + vecnorm(K_cal, p, 1)').^(-(n + 1)/2);
 t_spline = (0:0.01:t_f)'; %Time vector por spline in one iteration
 
 %% Loop for the Search task
-n_iter_max = 6;
+n_iter_max = 10;
 
 % Registers
 z_reg = zeros(N+1, 4, n_iter_max);
@@ -255,7 +264,6 @@ V_Xe_reg = zeros(length(t_spline), 1, n_iter_max);
 
 % Initializations
 z_act = z_0;
-%u_act = u_0;
 phi_k_act = phi_k_reg;
 Phi_hat_x_act = Phi_hat_x;
 
@@ -274,10 +282,6 @@ Par_PDF.Meas_mean = a;
 Par_PDF.nbDef_range = [1, n_def + 2]; 
 
 Par_PDF.Prev_Data = [];
-% Par_PDF.Prev_Priors = [];
-% Par_PDF.Prev_Mu = [0, 0; 0, 0; 0, 0];
-% Par_PDF.Prev_Sigma = repmat(diag([realmax, realmax]), 1, 1, n_def);
-% Par_PDF.Prev_Sigma_a = repmat(diag([realmax, realmax]), 1, 1, n_def);
 Par_PDF.Prev_numComponents = [];
 
 % Define the dimensions of the registers for the defects found with an
@@ -316,9 +320,19 @@ Par_PDF.MaxVarCons = nu_p*(L_1 + L_2) + (1 - nu_p)*...
                      (Par_PDF.Thres_Variation - Par_PDF.eps);
 % Par_PDF.MaxVarCons = eta*Par_PDF.Thres_Variation;
 
-for i = 1:n_iter_max
+% Times
+T_ErgC_i = zeros(n_iter_max, 1);
+T_PDF_i = zeros(n_iter_max, 1);
 
+% Time for the whole Simulation
+T_sim_tic = tic;
+
+for i = 1:n_iter_max
+    
+    t_erg_init = tic;
     [Z, U] = Erg_traj_ipopt(z_act, phi_k_act); % Trayectoria Ergodica
+    T_ErgC_i(i) = toc(t_erg_init);
+
     Z = full(Z)';
     U = full(U)';
 
@@ -362,7 +376,10 @@ for i = 1:n_iter_max
     % PDF Estimation
     Par_PDF.iteration = i;
     Par_PDF.Prev_Phi_hat_x = Phi_hat_x_act;
+
+    t_pdf_init = tic;
     [Phi_hat_x_next, Estim_sol(i)] = PDF_Estimator(X_e_spline, V_Xe, Par_PDF);
+    T_PDF_i(i) = toc(t_pdf_init);
 
     % Update Iterations Counter where No data hav been found
     NoDataIterCounter = NoDataIterCounter + Estim_sol(i).flag_NoData;
@@ -401,103 +418,26 @@ for i = 1:n_iter_max
     
     % Saving Data to use it as "Previous data" in next iterations
     Par_PDF.Prev_Data = Estim_sol(i).Data;
-    % Par_PDF.Prev_Priors = Estim_sol(i).Priors;
-    % Par_PDF.Prev_Mu = Estim_sol(i).Mu;
-    % Par_PDF.Prev_Sigma = Estim_sol(i).Sigma;
-    % Par_PDF.Prev_Sigma_a = Estim_sol(i).Sigma_a;
 
     % Compute new Fourier coefficients for \hat{Phi}(x)
     [phi_k_reg, ~, ~] = FourierCoef_RefPDF(Phi_hat_x_next, Par_struct);
 
     % Update parameters for next iteration
     z_act = Z(end,:)';           % Initial condition for state
-    %u_act = U(end,:)';
     phi_k_act = phi_k_reg;      % New target coefficients
     Phi_hat_x_act = Phi_hat_x_next;
 
 end
 
-% Remove the initial value (zero values) for defects found
+% Remove the initial value (zero values) for defects found 
 Mu_found = Par_PDF.Prev_Mu_found(2:end, :);
 Sigma_found = Par_PDF.Prev_Sigma_found(:,:,2:end);
 
+T_sim_toc = toc(T_sim_tic);
 
-%% Reconstrucción de distribución empírica y métrica ergódica
-
-Varepsilon_reg = zeros(length(t), 1, n_iter);
-C_x_reg = zeros(height(Omega), length(t), n_iter);
-
-for r = 1:n_iter
-    c_k = zeros(K^n, 1);
-    C_x = zeros(height(Omega), 1);
-    for i = 1:length(t)
-
-        % Compute Fourier Functions and coefficients on the new position
-        f_k_traj = prod(cos( K_cal'.*pi.*(X_e_reg(i,:,r) - L_i_l)./(L_i_u - L_i_l) ), 2) ./ h_k_reg ;
-        c_k = c_k + (f_k_traj*T_s)/(t_f) ; %i*T_s %t_f
-
-        %Ergodic metric
-        Varepsilon = sum( Lambda_k .* (c_k - phi_k_REG(:,:,r)).^2 );
-
-        %Empirical distribution reconstruction
-        C_x_i = zeros(height(Omega), 1);
-        for j = 1:K^n
-            C_x_i = C_x_i + c_k(j)*f_k_reg(:,j);
-        end
-
-        %Se suman todas las distribuciones generadas en cada muestra
-        C_x = C_x + C_x_i;
-
-        %Se registra
-        C_x_reg(:,i,r) = C_x;
-        Varepsilon_reg(i,:,r) = Varepsilon;
-
-    end
-
-end
-
-
-%% Pre-Procesing for charts
-
-t_total = zeros(n_iter*(length(t)-1) + 1, 1);
-X_e_total = zeros(n_iter*(length(t)-1) + 1, 2);
-X_e_dot_total = zeros(n_iter*(length(t)-1) + 1, 2);
-Varepsilon_total = zeros(n_iter*(length(t)-1) + 1, 1);
-u_total = zeros(n_iter*(length(t)-1) + 1, 2);
-
-t_spline_total = zeros(n_iter*(length(t_spline)-1) + 1, 1);
-X_e_spline_total = zeros(n_iter*(length(t_spline)-1) + 1, 2);
-X_e_dot_spline_total = zeros(n_iter*(length(t_spline)-1) + 1, 2);
-u_spline_total = zeros(n_iter*(length(t_spline)-1) + 1, 2);
-V_Xe_total = zeros(n_iter*(length(t_spline)-1) + 1, 1);
-
-for i = 1:n_iter
-
-    id_init = ((i - 1)*(length(t)-1) + 1); %1,101,..
-    id_last = (i*(length(t)-1) + 1);        %101, 201,...
-
-    t_total( id_init:id_last ) = (i - 1)*t(end) + t;
-    X_e_total( id_init:id_last, : ) = X_e_reg(:,:,i);
-    X_e_dot_total( id_init:id_last, : ) = X_e_dot_reg(:,:,i);
-    Varepsilon_total( id_init:id_last, : ) = Varepsilon_reg(:,:,i);
-    u_total( id_init:id_last, : ) = [u_reg(:,:,i); [NaN, NaN]];
-    
-    id_init_spline = ((i - 1)*(length(t_spline)-1) + 1);
-    id_last_spline = (i*(length(t_spline)-1) + 1);
-    t_spline_total( id_init_spline:id_last_spline ) = (i - 1)*t_spline(end) + t_spline;
-    X_e_spline_total( id_init_spline:id_last_spline, : ) = X_e_spline_reg(:,:,i);
-    X_e_dot_spline_total( id_init_spline:id_last_spline, : ) = X_e_dot_spline_reg(:,:,i);
-    u_spline_total( id_init_spline:id_last_spline, : ) = [u_spline_reg(:,:,i); [NaN, NaN]];
-    V_Xe_total( id_init_spline:id_last_spline, : ) = V_Xe_reg(:,:,i);
-
-end
 
 %% Saving variables (Except the casadi function)
 
-% Normal for-loop
-
-% save(sprintf("Results/output_%d.mat",run_idx), "-regexp", "^(?!(Erg_traj_ipopt)$).");
-
-% end
+% save(sprintf("Results/output.mat"), "-regexp", "^(?!(Erg_traj_ipopt)$).");
 
 

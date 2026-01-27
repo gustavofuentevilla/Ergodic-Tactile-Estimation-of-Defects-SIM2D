@@ -1,6 +1,6 @@
 close all
-% clear
-clearvars -except Erg_traj_ipopt
+clear
+% clearvars -except Erg_traj_ipopt
 clc
 
 import casadi.*
@@ -9,11 +9,11 @@ import casadi.*
 
 n = 2; % Número de dimensiones espaciales
 
-L_1_l = 0.5;
+L_1_l = 1.0;
 L_1_u = 1.5;
 dx_1 = (L_1_u - L_1_l)/100;
 
-L_2_l = 0.5;
+L_2_l = 1.0;
 L_2_u = 1.5;
 dx_2 = (L_2_u - L_2_l)/100;
 
@@ -113,10 +113,6 @@ t_f = 10;           %Tiempo final por iteración
 T_s = t_f/N;                  % Tiempo de muestreo
 t = (0:T_s:t_f)';   %Vector de tiempo por iteración
 
-% Peso sobre controles
-% R = [5e-3, 0;
-%      0, 5e-3]*(1/T_s); %N = 200; Cotas en el Jerk
-
 R = [3e-04, 0;
      0, 3e-04]*(1/T_s); %N = 200; 7e-5
 
@@ -124,7 +120,7 @@ R = [3e-04, 0;
 gamma = 1;
 
 % Estado inicial z = [z_1; z_2; z_3; z_4] = [x_1; x_1_dot; x_2; x_2_dot]
-z_0 = [0.5; 0; 0.5; 0]; 
+z_0 = [1.0; 0; 1.0; 0]; 
 
 %Pre-cálculo de Lambda
 p = 2; %norma 2
@@ -132,127 +128,127 @@ Lambda_k = (1 + vecnorm(K_cal, p, 1)').^(-(n + 1)/2);
 
 %% %%%%%%%%%%%%% Casadi Problem Setup IPOPT %%%%%%%%%%%%%%%%%%
 
-% % Ecuaciones x_1_ddot = u_1;    x_2_ddot = u_2;
-% z = MX.sym('z', 4); %states z = [z(1); z(2); z(3); z(4)] = [x_1; x_1_dot; x_2; x_2_dot]
-% u = MX.sym('u', 2); %controls u = [u(1); u(2)]
-% 
-% %ODE construction: z_dot = [z(2); u(1); z(4); u(2)]
-% z_dot = [z(2); u(1); z(4); u(2)];
-% f = Function('f', {z,u}, {z_dot}, {'z', 'u'}, {'z_dot'});
-% 
-% %DAE problem structure
-% 
-% intg_options = struct;
-% intg_options.tf = T_s;   %Integration time (one step ahead)
-% intg_options.simplify = true;
-% intg_options.number_of_finite_elements = 4; %intermediate steps on the integration horizon
-% 
-% dae = struct;
-% 
-% dae.x = z;  % states (formalized)
-% dae.p = u;  % parameter, fixed during integration horizon (just one step ahead)
-% dae.ode = f(z,u); % symbolic dynamics
-% 
-% intg = integrator('intg', 'rk', dae, intg_options); %RK4 integration method
-% 
-% %One step integration (numerical)
-% % res = intg('x0', z_0, 'p', [0.5; 0]);  %z_0 initial condition, p = u controls
-% % z_next = res.xf;
-% 
-% %One step integration (symbolic)
-% res = intg('x0', z, 'p', u);
+% Ecuaciones x_1_ddot = u_1;    x_2_ddot = u_2;
+z = MX.sym('z', 4); %states z = [z(1); z(2); z(3); z(4)] = [x_1; x_1_dot; x_2; x_2_dot]
+u = MX.sym('u', 2); %controls u = [u(1); u(2)]
+
+%ODE construction: z_dot = [z(2); u(1); z(4); u(2)]
+z_dot = [z(2); u(1); z(4); u(2)];
+f = Function('f', {z,u}, {z_dot}, {'z', 'u'}, {'z_dot'});
+
+%DAE problem structure
+
+intg_options = struct;
+intg_options.tf = T_s;   %Integration time (one step ahead)
+intg_options.simplify = true;
+intg_options.number_of_finite_elements = 4; %intermediate steps on the integration horizon
+
+dae = struct;
+
+dae.x = z;  % states (formalized)
+dae.p = u;  % parameter, fixed during integration horizon (just one step ahead)
+dae.ode = f(z,u); % symbolic dynamics
+
+intg = integrator('intg', 'rk', dae, intg_options); %RK4 integration method
+
+%One step integration (numerical)
+% res = intg('x0', z_0, 'p', [0.5; 0]);  %z_0 initial condition, p = u controls
 % z_next = res.xf;
-% 
-% F = Function('F', {z,u}, {z_next}, {'z','u'}, {'z_next'});
-% 
-% %% Multiple Shooting for one prediction horizon with N+1 samples
-% opti = casadi.Opti();
-% 
-% z = opti.variable(4, N+1);
-% u = opti.variable(2, N);
-% z_0_sym = opti.parameter(4, 1);  % parameter (not optimized over): initial condition
-% %u_0_sym = opti.parameter(2, 1);
-% phi_k_sym = opti.parameter(K^n, 1);
-% %u_d_sym = opti.parameter(2, 1);
-% 
-% % Symbolic Fourier functions, coefficients and ergodic metric with casadi
-% X_e_sym = [z(1,:)', z(3,:)'];     %Position [x_1, x_2] for all N samples
-% 
-% c_k_sym = 0;
-% f_k_traj_sym = opti.variable(K^n,1);
-% J = 0;
-% for i = 1:N
-%     for j = 1:K^n
-%         %problems using(.*) with casadi when K_cal is a matrix
-%         temp = cos(K_cal(:,j)'.*pi.*(X_e_sym(i,:) - L_i_l)./(L_i_u - L_i_l));   
-%         %problems using prod() function
-%         f_k_traj_sym(j,1) = temp(1)*temp(2)/h_k_reg(j);
-%     end
-%     c_k_sym = c_k_sym + (f_k_traj_sym*T_s)/(t_f);
-%     Varepsilon_sym = sum( Lambda_k.*(c_k_sym - phi_k_sym).^2 );
-% 
-%     % Objetive function
-%     J = J + gamma*Varepsilon_sym + u(:,i)'*R*u(:,i)*T_s; %(u(:,i) - u_d)   u(:,i)'*R*u(:,i)
+
+%One step integration (symbolic)
+res = intg('x0', z, 'p', u);
+z_next = res.xf;
+
+F = Function('F', {z,u}, {z_next}, {'z','u'}, {'z_next'});
+
+%% Multiple Shooting for one prediction horizon with N+1 samples
+opti = casadi.Opti();
+
+z = opti.variable(4, N+1);
+u = opti.variable(2, N);
+z_0_sym = opti.parameter(4, 1);  % parameter (not optimized over): initial condition
+%u_0_sym = opti.parameter(2, 1);
+phi_k_sym = opti.parameter(K^n, 1);
+%u_d_sym = opti.parameter(2, 1);
+
+% Symbolic Fourier functions, coefficients and ergodic metric with casadi
+X_e_sym = [z(1,:)', z(3,:)'];     %Position [x_1, x_2] for all N samples
+
+c_k_sym = 0;
+f_k_traj_sym = opti.variable(K^n,1);
+J = 0;
+for i = 1:N
+    for j = 1:K^n
+        %problems using(.*) with casadi when K_cal is a matrix
+        temp = cos(K_cal(:,j)'.*pi.*(X_e_sym(i,:) - L_i_l)./(L_i_u - L_i_l));   
+        %problems using prod() function
+        f_k_traj_sym(j,1) = temp(1)*temp(2)/h_k_reg(j);
+    end
+    c_k_sym = c_k_sym + (f_k_traj_sym*T_s)/(t_f);
+    Varepsilon_sym = sum( Lambda_k.*(c_k_sym - phi_k_sym).^2 );
+
+    % Objetive function
+    J = J + gamma*Varepsilon_sym + u(:,i)'*R*u(:,i)*T_s; %(u(:,i) - u_d)   u(:,i)'*R*u(:,i)
+end
+
+% f_k_traj_sym = prod(cos( K_cal'.*pi.*(X_e_sym(i,:) - L_i_l)./(L_i_u - L_i_l) ), 2) ./ h_k_reg ;
+% c_k_sym = c_k_sym + (f_k_traj_act*T_s)/t_f ;
+% Varepsilon_act = sum( Lambda_k .* (c_k_act - phi_k_reg).^2 ); 
+
+opti.minimize( J );
+
+% Equality Constraints
+for k = 1:N
+    opti.subject_to( z(:,k+1) == F( z(:,k),u(:,k) ) );
+end
+opti.subject_to( z(1,1) == z_0_sym(1) ); % posiciones iniciales
+opti.subject_to( z(3,1) == z_0_sym(3) );
+opti.subject_to( z(2,1:2) == 0 ); % velocidades iniciales cero
+opti.subject_to( z(4,1:2) == 0 );
+opti.subject_to( z(2,end-1:end) == 0 ); % velocidades finales cero
+opti.subject_to( z(4,end-1:end) == 0 );
+% opti.subject_to( u(:,1) == u_0_sym ); % controles (aceleraciones) iniciales
+
+% Inequality Constraints
+opti.subject_to( -50 <= u <= 50 );
+opti.subject_to( L_1_l <= z(1,:) <= L_1_u );    % x_1 boundaries
+opti.subject_to( L_2_l <= z(3,:) <= L_2_u );    % x_2 boundaries
+
+% constrain the derivate of control inputs
+% for k = 1:N-1
+%     opti.subject_to( abs(u(:,k+1) - u(:,k))/T_s <= 300 ); % 15 N
 % end
-% 
-% % f_k_traj_sym = prod(cos( K_cal'.*pi.*(X_e_sym(i,:) - L_i_l)./(L_i_u - L_i_l) ), 2) ./ h_k_reg ;
-% % c_k_sym = c_k_sym + (f_k_traj_act*T_s)/t_f ;
-% % Varepsilon_act = sum( Lambda_k .* (c_k_act - phi_k_reg).^2 ); 
-% 
-% opti.minimize( J );
-% 
-% % Equality Constraints
-% for k = 1:N
-%     opti.subject_to( z(:,k+1) == F( z(:,k),u(:,k) ) );
-% end
-% opti.subject_to( z(1,1) == z_0_sym(1) ); % posiciones iniciales
-% opti.subject_to( z(3,1) == z_0_sym(3) );
-% opti.subject_to( z(2,1:2) == 0 ); % velocidades iniciales cero
-% opti.subject_to( z(4,1:2) == 0 );
-% opti.subject_to( z(2,end-1:end) == 0 ); % velocidades finales cero
-% opti.subject_to( z(4,end-1:end) == 0 );
-% % opti.subject_to( u(:,1) == u_0_sym ); % controles (aceleraciones) iniciales
-% 
-% % Inequality Constraints
-% opti.subject_to( -50 <= u <= 50 );
-% opti.subject_to( L_1_l <= z(1,:) <= L_1_u );    % x_1 boundaries
-% opti.subject_to( L_2_l <= z(3,:) <= L_2_u );    % x_2 boundaries
-% 
-% % constrain the derivate of control inputs
-% % for k = 1:N-1
-% %     opti.subject_to( abs(u(:,k+1) - u(:,k))/T_s <= 300 ); % 15 N
-% % end
-% 
-% % Solver definition
-% % p_opts = struct('expand',true);
-% % s_opts = struct('max_iter',100);
-% solver_opts = struct;
-% solver_opts.expand = true;
-% solver_opts.ipopt.max_iter = 2000;
-% opts.ipopt.print_level = 0;
-% %opts.ipopt.acceptable_tol = 1e-8;
-% %opts.ipopt.acceptable_obj_change_tol = 1e-6;
-% 
-% opti.solver('ipopt', solver_opts);
-% 
-% % opti.solver('sqpmethod', struct('qpsol','qrqp'));
-% 
-% %setting the initial conditions
-% opti.set_value(z_0_sym, z_0);
-% %opti.set_value(u_0_sym, u_0);
-% opti.set_value(phi_k_sym, phi_k_reg);
-% %opti.set_value(u_d_sym, u_d);
-% 
-% %Solving the optimization problem over the horizon N
-% solution = opti.solve();
-% 
-% % Function mapping from initial condition z0 to the optimal control action
-% %(first u of the N control actions). M contains IPOPT method embedded and
-% %integration method RK4
-% 
-% Erg_traj_ipopt = opti.to_function('Erg_traj_ipopt',...
-%             {z_0_sym, phi_k_sym}, {z, u},...
-%             {'z_0','phi_k'}, {'z','u'});
+
+% Solver definition
+% p_opts = struct('expand',true);
+% s_opts = struct('max_iter',100);
+solver_opts = struct;
+solver_opts.expand = true;
+solver_opts.ipopt.max_iter = 2000;
+opts.ipopt.print_level = 0;
+%opts.ipopt.acceptable_tol = 1e-8;
+%opts.ipopt.acceptable_obj_change_tol = 1e-6;
+
+opti.solver('ipopt', solver_opts);
+
+% opti.solver('sqpmethod', struct('qpsol','qrqp'));
+
+%setting the initial conditions
+opti.set_value(z_0_sym, z_0);
+%opti.set_value(u_0_sym, u_0);
+opti.set_value(phi_k_sym, phi_k_reg);
+%opti.set_value(u_d_sym, u_d);
+
+%Solving the optimization problem over the horizon N
+solution = opti.solve();
+
+% Function mapping from initial condition z0 to the optimal control action
+%(first u of the N control actions). M contains IPOPT method embedded and
+%integration method RK4
+
+Erg_traj_ipopt = opti.to_function('Erg_traj_ipopt',...
+            {z_0_sym, phi_k_sym}, {z, u},...
+            {'z_0','phi_k'}, {'z','u'});
 
 %% %%%%%%%%%%%%% Casadi Problem Setup FATROP %%%%%%%%%%%%%%%%%%
 
@@ -431,9 +427,9 @@ Lambda_k = (1 + vecnorm(K_cal, p, 1)').^(-(n + 1)/2);
 % Erg_traj_ipopt = Function.load('Erg_traj_ipopt.casadi');
 % M_fatrop = Function.load('M_fatrop.casadi');
 
-%% vector to add more points on the trajectory and get more data from sensor
+%% vector to add more points on the trajectory
 
-t_spline = (0:0.01:t_f)'; %Time vector por spline in one iteration
+t_spline = (0:T_s/10:t_f)'; %Time vector por spline in one iteration
 
 %% Loop for the Search task
 
