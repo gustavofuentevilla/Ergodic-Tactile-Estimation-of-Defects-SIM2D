@@ -1,6 +1,6 @@
 % Primera ejecución
 % import casadi.*
-% Erg_traj_ipopt = Function.load('/home/gustavo-fuentevilla/MATLAB/Ergodic_Tactile_Estimation_of_Defects_SIM2D/Casadi_Formulation_ExplTask/Erg_traj_ipopt.casadi');
+% Erg_traj_ipopt = Function.load('/home/gustavo-fuentevilla/MATLAB/Ergodic_Tactile_Estimation_of_Defects_SIM2D/Casadi_Formulation_ExplTask/Erg_traj_2.casadi');
 
 for idx_X0 = 1:20
 
@@ -70,17 +70,22 @@ X0 = [L_1_l, L_2_l;
 
 %% Defects definition
 
-n_def = 3;
+n_def = 5;
 
 % Load random number generator to reproduce Tests (from Case 1)
-load(sprintf("Test2/Case1/%dDef/X0_%d/output_%d.mat",...
+load(sprintf("Test3/Case1/%dDef/X0_%d/output_%d.mat",...
              n_def, idx_X0, run_idx), "rng_saved")
 rng(rng_saved)
 
 % Defects generator
 [Mu, Sigma, r_elips_Phi] = DefectsGen(n_def, L_i_l, L_i_u);
 
-gm_dist = gmdistribution(Mu, Sigma);
+proportions = [1/(1+1+2+2+3),...
+               1/(1+1+2+2+3),...
+               2/(1+1+2+2+3),...
+               2/(1+1+2+2+3),...
+               3/(1+1+2+2+3)];
+gm_dist = gmdistribution(Mu, Sigma, proportions);
 
 %PDF de referencia REAL
 Phi_x = pdf(gm_dist, Omega);
@@ -335,14 +340,9 @@ for i = 1:n_iter_max
 
 end
 
-%(comment for no removing case)
 % Remove the initial value (zero values) for defects found 
 Mu_found = Par_PDF.Prev_Mu_found(2:end, :);
 Sigma_found = Par_PDF.Prev_Sigma_found(:,:,2:end);
-
-%(UNcomment for no removing case)
-% Mu_found = Estim_sol(n_iter).Mu_found;
-% Sigma_found = Estim_sol(n_iter).Sigma_found;
 
 T_sim_toc = toc(T_sim_tic);
 
@@ -351,7 +351,7 @@ T_sim_toc = toc(T_sim_tic);
 
 % Normal for-loop
 
-save(sprintf("Test2/Case2/%dDef/X0_%d/output_%d.mat",...
+save(sprintf("Test3/Case2/%dDef/X0_%d/output_%d.mat",...
              n_def, idx_X0, run_idx),...
      "-regexp", "^(?!(Erg_traj_ipopt)$).");
 

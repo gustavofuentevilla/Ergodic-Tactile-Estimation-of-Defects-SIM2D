@@ -1,10 +1,10 @@
 % Primera ejecución
 % import casadi.*
-% Erg_traj_ipopt = Function.load('/home/gustavo-fuentevilla/MATLAB/Ergodic_Tactile_Estimation_of_Defects_SIM2D/Casadi_Formulation_ExplTask/Erg_traj_ipopt.casadi');
+% Erg_traj_ipopt = Function.load('/home/gustavo-fuentevilla/MATLAB/Ergodic_Tactile_Estimation_of_Defects_SIM2D/Casadi_Formulation_ExplTask/Erg_traj_2.casadi');
 
 for idx_X0 = 1:20
 
-for run_idx = 1:5
+for run_idx = 5:5
 
 % Resto de ejecuciones
 close all
@@ -37,9 +37,6 @@ x_2 = (L_2_l:dx_2:L_2_u)';
 L_i_l = [L_1_l, L_2_l];
 L_i_u = [L_1_u, L_2_u];
 
-L_1 = (L_1_u - L_1_l);
-L_2 = (L_2_u - L_2_l);
-
 [x_1_grid, x_2_grid] = meshgrid(x_1, x_2);
 
 %Espacio de búsqueda discretizado
@@ -70,19 +67,23 @@ X0 = [L_1_l, L_2_l;
 
 %% Defects definition
 
-n_def = 3;
+n_def = 5;
 
 % Load random number generator to reproduce Tests (from Case 1)
-load(sprintf("Tests/Case1/%dDef/X0_%d/output_%d.mat",...
+load(sprintf("Test3/Case1/%dDef/X0_%d/output_%d.mat",...
              n_def, idx_X0, run_idx), "rng_saved")
 rng(rng_saved)
 
+% rng_saved = rng;
+
 [Mu, Sigma, r_elips_Phi] = DefectsGen(n_def, L_i_l, L_i_u);
 
-% % Para replicar los resultados con defectos ya existentes en /results/
-% load(sprintf("Results/output_%d.mat",run_idx), "Mu", "Sigma", "r_elips_Phi")
-
-gm_dist = gmdistribution(Mu, Sigma);% , proporciones);
+proportions = [1/(1+1+2+2+3),...
+               1/(1+1+2+2+3),...
+               2/(1+1+2+2+3),...
+               2/(1+1+2+2+3),...
+               3/(1+1+2+2+3)];
+gm_dist = gmdistribution(Mu, Sigma, proportions);
 
 %PDF de referencia REAL
 Phi_x = pdf(gm_dist, Omega);
@@ -143,7 +144,8 @@ Lambda_k = (1 + vecnorm(K_cal, p, 1)').^(-(n + 1)/2);
 
 %% vector to add more points on the trajectory and get more data from sensor
 
-t_spline = (0:T_s/10:t_f)'; %Time vector por spline in one iteration
+freq_spline = 200;
+t_spline = (0:1/freq_spline:t_f)';
 
 %% Loop for the Search task
 n_iter_max = 20;
@@ -162,7 +164,6 @@ V_Xe_reg = zeros(length(t_spline), 1, n_iter_max);
 
 % Initializations
 z_act = z_0;
-%u_act = u_0;
 phi_k_act = phi_k_reg;
 Phi_hat_x_act = Phi_hat_x;
 
@@ -181,16 +182,8 @@ Par_PDF.Meas_mean = a;
 Par_PDF.nbDef_range = [1, n_def + 2]; 
 
 Par_PDF.Prev_Data = [];
-% Par_PDF.Prev_Priors = [];
-% Par_PDF.Prev_Mu = [0, 0; 0, 0; 0, 0];
-% Par_PDF.Prev_Sigma = repmat(diag([realmax, realmax]), 1, 1, n_def);
-% Par_PDF.Prev_Sigma_a = repmat(diag([realmax, realmax]), 1, 1, n_def);
 Par_PDF.Prev_numComponents = [];
 
-% Define the dimensions of the registers for the defects found with an
-% initial value (these has to be removed at the end)
-Par_PDF.Prev_Mu_found = [0, 0];
-Par_PDF.Prev_Sigma_found = [0, 0; 0, 0];
 NoDataIterCounter = 0;
 
 n_iter = n_iter_max;
@@ -280,7 +273,7 @@ for i = 1:n_iter_max
     Par_PDF.Prev_Phi_hat_x = Phi_hat_x_act;
 
     t_pdf_init = tic;
-    [Phi_hat_x_next, Estim_sol(i)] = PDF_EstimatorCase2(X_e_spline, V_Xe, Par_PDF);
+    [Phi_hat_x_next, Estim_sol(i)] = PDF_EstimatorCase3(X_e_spline, V_Xe, Par_PDF);
     T_PDF_i(i) = toc(t_pdf_init);
 
     % Update Iterations Counter where No data hav been found
@@ -309,41 +302,28 @@ for i = 1:n_iter_max
         Par_PDF.Prev_numComponents = Estim_sol(i).numComponents;
     end
 
-    % Save found defects if any
-    Par_PDF.Prev_Mu_found = cat(1, Par_PDF.Prev_Mu_found, Estim_sol(i).Mu_found);
-    Par_PDF.Prev_Sigma_found = cat(3, Par_PDF.Prev_Sigma_found, Estim_sol(i).Sigma_found);
-
+    % Save number of iterations achieved
     if Estim_sol(i).flag_done
-        n_iter = i; % Save number of iterations achieved
+        n_iter = i; 
         break;
     end
     
     % Saving Data to use it as "Previous data" in next iterations
     Par_PDF.Prev_Data = Estim_sol(i).Data;
-    % Par_PDF.Prev_Priors = Estim_sol(i).Priors;
-    % Par_PDF.Prev_Mu = Estim_sol(i).Mu;
-    % Par_PDF.Prev_Sigma = Estim_sol(i).Sigma;
-    % Par_PDF.Prev_Sigma_a = Estim_sol(i).Sigma_a;
 
     % Compute new Fourier coefficients for \hat{Phi}(x)
     [phi_k_reg, ~, ~] = FourierCoef_RefPDF(Phi_hat_x_next, Par_struct);
 
     % Update parameters for next iteration
     z_act = Z(end,:)';           % Initial condition for state
-    %u_act = U(end,:)';
-    phi_k_act = phi_k_reg;      % New target coefficients
+    phi_k_act = phi_k_reg;       % New target coefficients
     Phi_hat_x_act = Phi_hat_x_next;
 
 end
 
-%(comment for no removing case)
-% Remove the initial value (zero values) for defects found 
-Mu_found = Par_PDF.Prev_Mu_found(2:end, :);
-Sigma_found = Par_PDF.Prev_Sigma_found(:,:,2:end);
-
-%(UNcomment for no removing case)
-% Mu_found = Estim_sol(n_iter).Mu_found;
-% Sigma_found = Estim_sol(n_iter).Sigma_found;
+% Extract found defects
+Mu_found = Estim_sol(n_iter).Mu_found;
+Sigma_found = Estim_sol(n_iter).Sigma_found;
 
 T_sim_toc = toc(T_sim_tic);
 
@@ -352,9 +332,12 @@ T_sim_toc = toc(T_sim_tic);
 
 % Normal for-loop
 
-save(sprintf("Tests/Case2/%dDef/X0_%d/output_%d.mat",...
+save(sprintf("Test3/Case3/%dDef/X0_%d/output_%d.mat",...
              n_def, idx_X0, run_idx),...
      "-regexp", "^(?!(Erg_traj_ipopt)$).");
+
+
+end
 
 end
 
