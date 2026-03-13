@@ -6,7 +6,7 @@ clc
 % Case (1: full algoritm, 2: No repeating points, 3: No removing gaussians)
 Case_i = 2;
 % Number of Defectss
-def = 5;
+def = 7;
 % Number of initial positions
 totalX0 = 20;
 % Number of tests per initial position
@@ -27,7 +27,7 @@ checkidx = false(totalX0,totalOut);
 for X0_i = 1:totalX0
     for out_i = 1:totalOut
         % Loading file and extract variables
-        filename = "Test3/Case" + Case_i +...
+        filename = "Test2/Case" + Case_i +...
                    "/" + def + "Def/X0_" + X0_i + ...
                     "/output_" + out_i + ".mat";
         load(filename, "n_iter", "Mu_found", "T_sim_toc", "Estim_sol",...
@@ -54,6 +54,15 @@ end
 
 % Success rate (Number of tests in which all the defects are found)
 successRate = sum(nbMu == def, 'all') / numel(nbMu) * 100;
+
+% Success rate (porcentage of overall found defects)
+TotalFoundDef = 0;
+for X0_i = 1:totalX0
+    for out_i = 1:totalOut
+        TotalFoundDef = TotalFoundDef + height(Mu_found_buffer{X0_i, out_i});
+    end
+end
+SR_def = TotalFoundDef/(def*totalX0*totalOut) * 100;
 
 % Calculate the average values and standard deviations
 avgIter = mean(nbIter, "all");

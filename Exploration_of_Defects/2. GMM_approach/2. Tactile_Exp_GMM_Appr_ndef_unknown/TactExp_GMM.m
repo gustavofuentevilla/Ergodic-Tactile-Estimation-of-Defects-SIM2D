@@ -1,6 +1,6 @@
 % Primera ejecución
 % import casadi.*
-% Erg_traj_ipopt = Function.load('/home/gustavo-fuentevilla/MATLAB/Ergodic_Tactile_Estimation_of_Defects_SIM2D/Casadi_Formulation_ExplTask/Erg_traj_ipopt.casadi');
+% Erg_traj_ipopt = Function.load('/home/gustavo-fuentevilla/MATLAB/Ergodic_Tactile_Estimation_of_Defects_SIM2D/Casadi_Formulation_ExplTask/Erg_traj_2.casadi');
 
 % Resto de ejecuciones
 close all
@@ -9,19 +9,22 @@ clc
 
 import casadi.*
 
-rng(19, 'twister'); 
-
 %% Parámetros del espacio de búsqueda U = [L_1_l, L_1_u] \times [L_2_l, L_2_u]
 
 n = 2; % Número de dimensiones espaciales
 
-L_1_l = 0.5;
-dx_1 = 0.01;
+L_1_l = 1;
 L_1_u = 1.5;
 
-L_2_l = 0.5;
-dx_2 = 0.01;
+L_2_l = 1;
 L_2_u = 1.5;
+
+L_1 = (L_1_u - L_1_l);
+L_2 = (L_2_u - L_2_l);
+
+dx_1 = L_1/100;
+dx_2 = L_2/100;
+
 
 % Dimensiones \mathbf{x} = [x_1 x_2]^T
 x_1 = (L_1_l:dx_1:L_1_u)';
@@ -30,9 +33,6 @@ x_2 = (L_2_l:dx_2:L_2_u)';
 %vector de límites inferior y superiores de las dimensiones
 L_i_l = [L_1_l, L_2_l];
 L_i_u = [L_1_u, L_2_u];
-
-L_1 = (L_1_u - L_1_l);
-L_2 = (L_2_u - L_2_l);
 
 [x_1_grid, x_2_grid] = meshgrid(x_1, x_2);
 
@@ -43,20 +43,20 @@ Omega = [reshape(x_1_grid,[],1), reshape(x_2_grid,[],1)];
 
 n_def = 3;
 
-% [Mu, Sigma, r_elips_Phi] = DefectsGen(n_def, L_i_l, L_i_u);
+[Mu, Sigma, r_elips_Phi] = DefectsGen(n_def, L_i_l, L_i_u);
 
-Mu = [0.7794, 1.3710;
-      0.8808, 0.5842;
-      1.1357, 1.2847];
-
-Cov_1 = 1e-3 * [0.5, 0.25; 0.25, 0.5];
-Cov_2 = 1e-3 * [0.5, -0.25; -0.25, 0.5];
-Cov_3 = 1e-3 * [0.5, 0.0; 0.0, 0.5];
-    
-Sigma = cat(3, Cov_1, Cov_2, Cov_3);
-
-r_elips_Phi = [0.0474, 0.0474, 0.0671;
-               0.0822, 0.0822, 0.0671];
+% Mu = [0.7794, 1.3710;
+%       0.8808, 0.5842;
+%       1.1357, 1.2847];
+% 
+% Cov_1 = 1e-3 * [0.5, 0.25; 0.25, 0.5];
+% Cov_2 = 1e-3 * [0.5, -0.25; -0.25, 0.5];
+% Cov_3 = 1e-3 * [0.5, 0.0; 0.0, 0.5];
+% 
+% Sigma = cat(3, Cov_1, Cov_2, Cov_3);
+% 
+% r_elips_Phi = [0.0474, 0.0474, 0.0671;
+%                0.0822, 0.0822, 0.0671];
 
 gm_dist = gmdistribution(Mu, Sigma);% , proporciones);
 
@@ -111,7 +111,7 @@ t = (0:T_s:t_f)';   %Vector de tiempo por iteración
 % gamma = 1;
 
 % Estado inicial z = [z_1; z_2; z_3; z_4] = [x_1; x_1_dot; x_2; x_2_dot]
-z_0 = [0.5; 0; 0.5; 0]; 
+z_0 = [1; 0; 1; 0]; 
 
 %Pre-cálculo de Lambda
 p = 2; %norma 2
@@ -270,7 +270,7 @@ Phi_hat_x_act = Phi_hat_x;
 % Measurement parameters
 a = 5; %Reference force
 b = 0.2;
-c = 0.01; %Amplitud del ruido en la medición
+c = 0.05; %Amplitud del ruido en la medición
 n_points = length(t_spline);
 
 % Parameters for PDF Estimator

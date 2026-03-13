@@ -67,7 +67,7 @@ X0 = [L_1_l, L_2_l;
 
 %% Defects definition
 
-n_def = 5;
+n_def = 3;
 
 % Save random number generator to reproduce Tests
 rng_saved = rng;
@@ -75,11 +75,9 @@ rng_saved = rng;
 % Defects generator
 [Mu, Sigma, r_elips_Phi] = DefectsGen(n_def, L_i_l, L_i_u);
 
-proportions = [1/(1+1+2+2+3),...
-               1/(1+1+2+2+3),...
-               2/(1+1+2+2+3),...
-               2/(1+1+2+2+3),...
-               3/(1+1+2+2+3)];
+proportions = [1/(1+2+3),...
+               2/(1+2+3),...
+               3/(1+2+3)];
 gm_dist = gmdistribution(Mu, Sigma, proportions);
 
 %PDF de referencia REAL

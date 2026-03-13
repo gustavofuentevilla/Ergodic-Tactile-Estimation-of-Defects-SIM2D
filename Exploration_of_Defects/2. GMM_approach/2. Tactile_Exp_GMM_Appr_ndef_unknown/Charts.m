@@ -4,10 +4,7 @@ close all
 clearvars -except Erg_traj_ipopt
 clc
 
-% load("Test_tmp/output.mat") 
-
-% load("Results/output_Norepeat.mat") % No repeating sim
-load("Test2/Case1/10Def/X0_20/output_3.mat") % No removing sim
+load("Test2/Case1/7Def/X0_5/output_3.mat")
 
 %% Reconstrucción de distribución empírica y métrica ergódica
 
@@ -573,12 +570,34 @@ for i = 1:n_iter
     ylim([L_2_l, L_2_u])
     grid on
     hold on
+    
+    % For equal level of severities on the defects
+    %
     for j = 1:n_def
         realdef_ax(j) = plot(Elipse_Phi(:,1,j), Elipse_Phi(:,2,j),...
                             "-.", "LineWidth", 3,...
                             "Color", RealDef_color);
     end
     plot(Mu(:,1),Mu(:,2),'.','MarkerSize',15, "Color", RealDef_color)
+
+    % For different level of severities on the defects
+    %
+    % for j = 1:n_def
+    %     realdef_ax(j) = plot(Elipse_Phi(:,1,j), Elipse_Phi(:,2,j),...
+    %                         "-.", "LineWidth", 25*proportions(j),...
+    %                         "Color", RealDef_color);
+    %     plot(Mu(j,1),Mu(j,2),'.','MarkerSize',90*proportions(j),...
+    %         "Color", RealDef_color)
+    % end    
+
+    % Plotting \pi_d text
+    %
+    % if i == 1
+    %     for j = 1:height(Mu)
+    %         text(Mu(j,1) + 0.04, Mu(j,2), "$\pi_" + j + "$",...
+    %              'FontSize', 8)
+    %     end
+    % end
 
     % ----Código para graficar los defectos ya encontrados en la i-esima it
     if i > 1
@@ -626,6 +645,10 @@ for i = 1:n_iter
     % lgd.Location = "northeastoutside";
 
     hold off
+
+    % Ticks
+    xticks([L_1_l, L_1_u])
+    yticks([L_2_l, L_2_u])
 end
 
 nexttile(layout30h)
@@ -634,8 +657,8 @@ nexttile(layout30h)
 %        length(x_2), length(x_1)),...
 %        "EdgeColor","none", "FaceColor","interp")
 title("Result",'Interpreter','latex')
-% xlabel('$x_1$ [m]','Interpreter','latex')
-% ylabel('$x_2$ [m]','Interpreter','latex')
+xticks([L_1_l, L_1_u])
+yticks([L_2_l, L_2_u])
 xtickformat('%.1f')
 ytickformat('%.1f')
 axis square
@@ -644,13 +667,27 @@ ylim([L_2_l, L_2_u])
 hold on
 
 %Grafica las elipses de defectos reales
+
+% For equal level of severities
+%
 for j = 1:n_def
     R_def_ax(j) = plot(Elipse_Phi(:,1,j), Elipse_Phi(:,2,j), "-.",...
                         "LineWidth", 3, "Color", RealDef_color);
 end
-
-%Grafica los centroides
 plot(Mu(:,1),Mu(:,2),'.','MarkerSize',15,"Color",RealDef_color)
+
+% For different level of severities
+%
+% for j = 1:n_def
+%     R_def_ax(j) = plot(Elipse_Phi(:,1,j), Elipse_Phi(:,2,j),...
+%                         "-.", "LineWidth", 25*proportions(j),...
+%                         "Color", RealDef_color);
+%     plot(Mu(j,1),Mu(j,2),'.','MarkerSize',90*proportions(j),...
+%         "Color", RealDef_color)
+% end 
+
+% Plot estimated centers
+%
 plot(Mu_found(:,1), Mu_found(:,2), '+', ...
     'LineWidth', 3, 'color', FoundDef_color);
 if ~Estim_sol(end).flag_done 
