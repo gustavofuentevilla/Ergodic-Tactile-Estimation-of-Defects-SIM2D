@@ -4,7 +4,7 @@ close all
 clearvars -except Erg_traj_ipopt
 clc
 
-load("Test2/Case1/7Def/X0_5/output_3.mat")
+load("Test3/Case2/7Def/X0_15/output_3.mat")
 
 %% Reconstrucción de distribución empírica y métrica ergódica
 
@@ -569,6 +569,14 @@ for i = 1:n_iter
     xlim([L_1_l, L_1_u])
     ylim([L_2_l, L_2_u])
     grid on
+
+    if i == n_iter
+        c = colorbar;
+        c.Ticks = [c.Limits(1), c.Limits(2)];
+        c.TickLabels = {'0', '1'};
+        % c.Label.String = "Probability";
+    end
+
     hold on
     
     % For equal level of severities on the defects
@@ -726,16 +734,17 @@ end
 % 
 % lgd.Location = 'northeastoutside';
 
-layout30h.TileSpacing = 'loose';
+layout30h.TileSpacing = 'tight';
 layout30h.Padding = 'tight';
 
 % Remueve los números del eje Y en las últimas 5 gráficas
 
-% layout30h.Children(1).YTick = [];
+layout30h.Children(1).YTick = [];
 % layout30h.Children(2).YTick = [];
-% layout30h.Children(3).YTick = [];
-% layout30h.Children(4).YTick = [];
-% layout30h.Children(5).YTick = [];
+layout30h.Children(3).YTick = [];
+layout30h.Children(4).YTick = [];
+layout30h.Children(5).YTick = [];
+layout30h.Children(6).YTick = [];
 
 xlabel(layout30h, '$x_1$ [m]','Interpreter','latex', "FontSize", 22)
 ylabel(layout30h, '$x_2$ [m]','Interpreter','latex', "FontSize", 22)

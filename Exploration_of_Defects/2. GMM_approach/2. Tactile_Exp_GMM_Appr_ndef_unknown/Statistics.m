@@ -6,7 +6,7 @@ clc
 % Case (1: full algoritm, 2: No repeating points, 3: No removing gaussians)
 Case_i = 2;
 % Number of Defectss
-def = 7;
+def = 5;
 % Number of initial positions
 totalX0 = 20;
 % Number of tests per initial position
@@ -27,7 +27,7 @@ checkidx = false(totalX0,totalOut);
 for X0_i = 1:totalX0
     for out_i = 1:totalOut
         % Loading file and extract variables
-        filename = "Test2/Case" + Case_i +...
+        filename = "Test3/Case" + Case_i +...
                    "/" + def + "Def/X0_" + X0_i + ...
                     "/output_" + out_i + ".mat";
         load(filename, "n_iter", "Mu_found", "T_sim_toc", "Estim_sol",...
