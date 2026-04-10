@@ -75,7 +75,7 @@ gm_dist = gmdistribution(Mu, Sigma, proportions);
 Phi_x = pdf(gm_dist, Omega);
 
 %% Tiempos
-t_f = 10;           %Tiempo final por iteración
+t_f = 20;           %Tiempo final por iteración
 T_s = 0.1;                  % Tiempo de muestreo
 t = (0:T_s:t_f)';   %Vector de tiempo por iteración
 
@@ -87,7 +87,8 @@ freq_interp = 200;
 t_interp = (0:1/freq_interp:T_s)';
 
 % Max velocity
-v_max = 1;
+v_max = 1.0;
+dmax = v_max*T_s;
 
 %% Measurement parameters
 a = 5; %Reference force
@@ -97,7 +98,7 @@ c = 0.05; %Amplitud del ruido en la medición
 V_real = a + b*Phi_x;
 
 % Initial position
-X_e = X0(10,:);
+X_e = X0(1,:);
 
 % Generate a random first displacement within the velocity constraint
 % dmax = v_max*T_s; % Maximum displacement
@@ -118,7 +119,6 @@ X_e = X0(10,:);
 % end
 
 % Generate a random first displacement within the maximum velocity
-dmax = v_max*T_s;
 theta = linspace(0, 2*pi, 100)';
 P_tmp = [X_e(1,1) + dmax*cos(theta), X_e(1,2) + dmax*sin(theta)];
 IsInOmega = false;
@@ -284,7 +284,7 @@ for i = 3:length(t)-1
 
     C1_mdl = fitrgp(X_e_sp, c_1,...
                     'KernelFunction', 'squaredexponential',...
-                    'SigmaLowerBound',0.1,...
+                    'SigmaLowerBound',0.02,...
                     'Standardize',true);
     [C1_pred, C1_std] = predict(C1_mdl, Omega);
     Phi_c_1 = normcdf(C1_pred./C1_std);

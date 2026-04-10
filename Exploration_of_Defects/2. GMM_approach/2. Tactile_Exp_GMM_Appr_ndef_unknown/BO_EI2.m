@@ -22,7 +22,7 @@ dx_2 = L_2/100;
 x_1 = (L_1_l:dx_1:L_1_u)';
 x_2 = (L_2_l:dx_2:L_2_u)';
 
-%vector de límites inferior y superiores de las dimensiones
+% vector de límites inferior y superiores de las dimensiones
 L_i_l = [L_1_l, L_2_l];
 L_i_u = [L_1_u, L_2_u];
 
@@ -30,7 +30,7 @@ xrange = [L_i_l', L_i_u'];
 
 [x_1_grid, x_2_grid] = meshgrid(x_1, x_2);
 
-%Espacio de búsqueda discretizado
+% Espacio de búsqueda discretizado
 Omega = [reshape(x_1_grid,[],1), reshape(x_2_grid,[],1)]; 
 
 %% Initial positions vector
