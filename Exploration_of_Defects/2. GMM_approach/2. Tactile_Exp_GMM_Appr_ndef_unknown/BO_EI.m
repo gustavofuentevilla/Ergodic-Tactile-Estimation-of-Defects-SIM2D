@@ -84,7 +84,8 @@ z_0 = [X0(1,1); 0; X0(1,2); 0];
 
 % t for interpolation
 freq_interp = 200;
-t_interp = (0:1/freq_interp:T_s)';
+T_s_interp = 1/freq_interp;
+t_interp = (0:T_s_interp:T_s-T_s_interp)';
 
 % Max velocity
 v_max = 1.0;
@@ -128,7 +129,7 @@ X_e = X0(1,:);
 %     IsInOmega = all(isbetween(Xrand, L_i_l, L_i_u));
 % end
 
-% Initialize trajectory wit zero velocity and a random first displacement
+% Initialize trajectory wit zero velocity
 X_e = [X_e; X_e]; % Xrand];
 
 % Interpolate to a 200Hz trajectory
@@ -252,14 +253,15 @@ for i = 2:length(t)-1
                 'KernelFunction', 'squaredexponential',...
                 'Standardize',true,...
                 'SigmaLowerBound',0.1,...
-                'BasisFunction','constant');
+                'BasisFunction','constant',...
+                'PredictMethod','exact');
     [V_pred, sd] = predict(mdl, Omega);
     % Loss = resubLoss(mdl);
 
     %% Expected Improvement
     % This EI is from http://krasserm.github.io/2018/03/21/bayesian-optimization/
     
-    xi = 3;  % Exploration-exploitation parameter (greek letter, xi)
+    xi = 0;  % Exploration-exploitation parameter (greek letter, xi)
              % High xi = more exploration
              % Low xi = more exploitation (can be < 0)
 
@@ -275,26 +277,51 @@ for i = 2:length(t)-1
 
     feasible_Points = Omega(idx_feasible, :);
     feasible_EI = EI(idx_feasible);
-    
+
     % sort EI (first element is the maximum)
     [eisorted, idx_ei] = sort(feasible_EI, 1, "descend");
-    
-    % Avoid already visited points
+
+    % re-arrange Omega
+    feasiblePtsSortedEI = feasible_Points(idx_ei,:);
+
+    % Algorithm for selecting the next point X
     for j = 1:height(eisorted)
+        % save the maximum EI (first elements)
         eimax = eisorted(j);
-        xEI = feasible_Points(idx_ei(j), :);
-        % check for already visited point
-        XYcheck = X_e == xEI;
-        check = XYcheck(:,1) & XYcheck(:,2);
-        if ~any(check)
+        % check for equal EI values
+        idxEqEI = eimax == eisorted;
+        % Extract the set of posible x's in which EI is maximum
+        posibleX = feasiblePtsSortedEI(idxEqEI, :);
+        % Select a random X from the set (if there are many)
+        idx_rand = randi(height(posibleX));
+        xEI = posibleX(idx_rand, :);
+        % check for already visited point, if already visited, iterate
+        % again
+        flag_visitedP = ismember(xEI, X_e, "rows");
+        if ~flag_visitedP
             break;
         end
     end
+    
+    % % sort EI (first element is the maximum)
+    % [eisorted, idx_ei] = sort(feasible_EI, 1, "descend");
+    % 
+    % % Avoid already visited points
+    % for j = 1:height(eisorted)
+    %     eimax = eisorted(j);
+    %     xEI = feasible_Points(idx_ei(j), :);
+    %     % check for already visited point
+    %     XYcheck = X_e == xEI;
+    %     check = XYcheck(:,1) & XYcheck(:,2);
+    %     if ~any(check)
+    %         break;
+    %     end
+    % end
 
     X_e(end + 1,:) = xEI;
 
     % new interpolation
-    t_interp = ((i-1)*T_s:1/freq_interp:i*T_s)';
+    t_interp = ((i-1)*T_s:T_s_interp:i*T_s-T_s_interp)';
     x_e_sp = spline(t(i:i+1), X_e(i:i+1,1), t_interp);
     y_e_sp = spline(t(i:i+1), X_e(i:i+1,2), t_interp);
     X_e_sp_new = [x_e_sp, y_e_sp];
@@ -351,20 +378,24 @@ end
 
 %% More plots xd
 
+t_plot = linspace(0, T_s*i, height(X_e_sp))';
+
 fig2h = figure(2);
 tiledlayout(3,1)
 
 nexttile(1)
-plot(t(1:length(X_e)), X_e, "LineWidth", 3)
+% plot(t(1:length(X_e)), X_e, "LineWidth", 3)
+plot(t_plot, X_e_sp, "LineWidth", 3)
 xlabel('Time [s]')
 ylabel('Position [m]')
 title("Position")
 legend("$x_{e_1}$", "$x_{e_2}$")
 
-v_normplot = sqrt(sum((diff(X_e)/T_s).^2, 2));
+v_normplot = sqrt(sum((diff(X_e_sp)/T_s_interp).^2, 2));
 v_normplot(end + 1) = v_normplot(end);
 nexttile(2)
-plot(t(1:length(v_normplot)), v_normplot, "LineWidth", 3)
+% plot(t(1:length(v_normplot)), v_normplot, "LineWidth", 3)
+plot(t_plot, v_normplot, "LineWidth", 3)
 xlabel('Time [s]')
 ylabel('Velocity [m/s]')
 title('Velocity norm')

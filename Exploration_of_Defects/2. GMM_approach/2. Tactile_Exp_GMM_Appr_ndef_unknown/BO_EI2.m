@@ -75,21 +75,22 @@ gm_dist = gmdistribution(Mu, Sigma, proportions);
 Phi_x = pdf(gm_dist, Omega);
 
 %% Tiempos
-t_f = 20;           %Tiempo final por iteración
-T_s = 0.1;                  % Tiempo de muestreo
-t = (0:T_s:t_f)';   %Vector de tiempo por iteración
 
-% Initial state
-z_0 = [X0(1,1); 0; X0(1,2); 0]; 
+N_MaxSamples = 20;
+
+% t_f = 20;           %Tiempo final por iteración
+% T_s = 0.1;                  % Tiempo de muestreo
+% t = (0:T_s:t_f)';   %Vector de tiempo por iteración
 
 % t for interpolation
 freq_interp = 200;
-t_interp = (0:1/freq_interp:T_s)';
+T_s_interp = 1/freq_interp;
+% t_interp = (0:T_s_interp:T_s)';
 
-% Max velocity
-v_max = 1.0;
+% constant velocity between samples
+vel = 0.5;
 % Max displacement
-dmax = v_max*T_s;
+displacement = vel*T_s_interp;
 
 %% Measurement parameters
 a = 5; %Reference force
@@ -129,16 +130,19 @@ X_e = X0(1,:);
 % end
 
 % Initialize trajectory wit zero velocity and a random first displacement
-X_e = [X_e; X_e]; % Xrand];
+% X_e = [X_e; X_e]; % Xrand];
 
 % Interpolate to a 200Hz trajectory
-x_e_sp = spline(t(1:height(X_e)), X_e(:,1), t_interp);
-y_e_sp = spline(t(1:height(X_e)), X_e(:,2), t_interp);
+% x_e_sp = spline(t(1:height(X_e)), X_e(:,1), t_interp);
+% y_e_sp = spline(t(1:height(X_e)), X_e(:,2), t_interp);
 
-X_e_sp = [x_e_sp, y_e_sp];
+% X_e_sp = [x_e_sp, y_e_sp];
+X_e_sp = X_e;
 
 % Take the measurements
 V = a + b*pdf(gm_dist, X_e_sp) + c*randn(height(X_e_sp), 1);
+
+t_exec = 0;
 
 %% Plots
 
@@ -211,9 +215,9 @@ title("Estimation")
 
 nexttile(7, [1, 2])
 loglikelihood = 0;
-loglikelihood_plot = plot(t(1), loglikelihood, "LineWidth", 2);
+loglikelihood_plot = plot(0, loglikelihood, "LineWidth", 2);
 title("Log-likelihood")
-xlabel('Time [s]')
+xlabel('Iteration')
 grid on
 
 % nexttile(8)
@@ -236,7 +240,7 @@ set(findall(fig1h, "-property", "FontSize"), "FontSize", 20)
 
 %% Loop
 
-for i = 2:length(t)-1
+for i = height(X_e):N_MaxSamples
 
     % avgV = mean(V);
     % stdV = std(V);
@@ -252,14 +256,15 @@ for i = 2:length(t)-1
                 'KernelFunction', 'squaredexponential',...
                 'Standardize',true,...
                 'SigmaLowerBound',0.1,...
-                'BasisFunction','constant');
+                'BasisFunction','constant',...
+                'PredictMethod','exact');
     [V_pred, sd] = predict(mdl, Omega);
     % Loss = resubLoss(mdl);
 
     %% Expected Improvement
     % This EI is from http://krasserm.github.io/2018/03/21/bayesian-optimization/
     
-    xi = 3;  % Exploration-exploitation parameter (greek letter, xi)
+    xi = 0;  % Exploration-exploitation parameter (greek letter, xi)
              % High xi = more exploration
              % Low xi = more exploitation (can be < 0)
 
@@ -267,36 +272,55 @@ for i = 2:length(t)-1
 
     EI = (sd ~= 0).*(d.*normcdf(d./sd) + sd.*normpdf(d./sd));
 
-    % [eimax,posEI] = max(EI); 
-    % xEI = Omega(posEI,:);
-    
-    % extract next feasible points (constraint)
-    idx_feasible = sum((Omega - X_e(end,:)).^2, 2) <= dmax^2;
-
-    feasible_Points = Omega(idx_feasible, :);
-    feasible_EI = EI(idx_feasible);
-    
     % sort EI (first element is the maximum)
-    [eisorted, idx_ei] = sort(feasible_EI, 1, "descend");
-    
-    % Avoid already visited points
+    [eisorted, idx_ei] = sort(EI, 1, "descend");
+    % re-arrange Omega
+    OmegaSortedEI = Omega(idx_ei,:);
+
+    % Algorithm for selecting the next point X
     for j = 1:height(eisorted)
+        % save the maximum EI (first element)
         eimax = eisorted(j);
-        xEI = feasible_Points(idx_ei(j), :);
-        % check for already visited point
-        XYcheck = X_e == xEI;
-        check = XYcheck(:,1) & XYcheck(:,2);
-        if ~any(check)
+        % check for equal EI values
+        idxEqEI = eimax == eisorted;
+        % Extract the set of posible x's in which EI is maximum
+        posibleX = OmegaSortedEI(idxEqEI, :);
+        % Select a random X from the set
+        idx_rand = randi(height(posibleX));
+        xEI = posibleX(idx_rand, :);
+        % check for already visited point, if already visited, iterate
+        % again
+        flag_visitedP = ismember(xEI, X_e, "rows");
+        if ~flag_visitedP
             break;
         end
     end
 
+    % Select the next point based on `EI
+    % for j = 1:height(eisorted)
+    %     eimax = eisorted(j);
+    %     xEI = Omega(idx_ei(j), :);
+    %     % check for already visited point
+    %     XYcheck = X_e == xEI;
+    %     check = XYcheck(:,1) & XYcheck(:,2);
+    %     if ~any(check)
+    %         break;
+    %     end
+    % end
+
     X_e(end + 1,:) = xEI;
 
-    % new interpolation
-    t_interp = ((i-1)*T_s:1/freq_interp:i*T_s)';
-    x_e_sp = spline(t(i:i+1), X_e(i:i+1,1), t_interp);
-    y_e_sp = spline(t(i:i+1), X_e(i:i+1,2), t_interp);
+    % distance from current BO sample to the next
+    dist = pdist(X_e(end-1:end,:));
+    % Estimated travel time with constant velocity
+    t_traj = dist/vel;
+    % Execution time vector
+    t_exec = [t_exec; t_exec(end) + t_traj];
+    % Make interpolation
+    t_interp = (t_exec(end-1):T_s_interp:t_exec(end)-T_s_interp)';
+    % t_interp = (t_exec(end-1):T_s_interp:t_exec(end))';
+    x_e_sp = spline(t_exec(end-1:end), X_e(end-1:end,1), t_interp);
+    y_e_sp = spline(t_exec(end-1:end), X_e(end-1:end,2), t_interp);
     X_e_sp_new = [x_e_sp, y_e_sp];
     X_e_sp(end+1:end+height(X_e_sp_new), :) = X_e_sp_new;
     % Update the measurement vector
@@ -328,16 +352,9 @@ for i = 2:length(t)-1
 
     loglikelihood = [loglikelihood;...
                     mdl.LogLikelihood];
-    % changeLogL = abs(loglikelihood(end) - loglikelihood(end-1));
-    % d_likelihood = [d_likelihood;...
-    %                 changeLogL];
 
-    % d_likelihood_plot.XData(end + 1) = t(i);
-    % d_likelihood_plot.YData(end + 1) = d_likelihood(end);
-    loglikelihood_plot.XData(end + 1) = t(i);
+    loglikelihood_plot.XData(end + 1) = i;
     loglikelihood_plot.YData(end + 1) = loglikelihood(end);
-    % loss_plot.XData(end + 1) = t(i);
-    % loss_plot.YData(end + 1) = loss(mdl, X_e_sp, V); %Loss
 
     % Exit the loop when the LogLikelihood is low enough
     if mdl.LogLikelihood <= -1000
@@ -351,20 +368,23 @@ end
 
 %% More plots xd
 
+t = linspace(0, t_exec(end), height(X_e_sp))';
+v_normplot = sqrt(sum((diff(X_e_sp)/T_s_interp).^2, 2));
+v_normplot(end + 1) = v_normplot(end);
+
 fig2h = figure(2);
 tiledlayout(3,1)
 
 nexttile(1)
-plot(t(1:length(X_e)), X_e, "LineWidth", 3)
+plot(t, X_e_sp, "LineWidth", 3)
+% plot(t_exec, X_e, "LineWidth", 3)
 xlabel('Time [s]')
 ylabel('Position [m]')
 title("Position")
 legend("$x_{e_1}$", "$x_{e_2}$")
 
-v_normplot = sqrt(sum((diff(X_e)/T_s).^2, 2));
-v_normplot(end + 1) = v_normplot(end);
 nexttile(2)
-plot(t(1:length(v_normplot)), v_normplot, "LineWidth", 3)
+plot(t, v_normplot, "LineWidth", 3)
 xlabel('Time [s]')
 ylabel('Velocity [m/s]')
 title('Velocity norm')
@@ -373,3 +393,8 @@ grid on;
 set(findall(fig2h,'-property','Interpreter'),'Interpreter','latex') 
 set(findall(fig2h,'-property','TickLabelInterpreter'),'TickLabelInterpreter','latex')
 set(findall(fig2h, "-property", "FontSize"), "FontSize", 20)
+
+%% Post-processing
+
+
+

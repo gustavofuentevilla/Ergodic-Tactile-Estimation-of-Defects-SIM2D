@@ -252,7 +252,8 @@ for i = 3:length(t)-1
     mdl = fitrgp(X_e_sp, V,...
                 'KernelFunction', 'squaredexponential',...
                 'Standardize',true,...
-                'SigmaLowerBound',0.1);
+                'SigmaLowerBound',0.1,...
+                'PredictMethod','exact');
     [V_pred, sd] = predict(mdl, Omega);
 
     %% Expected Improvement
@@ -285,28 +286,52 @@ for i = 3:length(t)-1
     C1_mdl = fitrgp(X_e_sp, c_1,...
                     'KernelFunction', 'squaredexponential',...
                     'SigmaLowerBound',0.02,...
-                    'Standardize',true);
+                    'Standardize',true,...
+                    'PredictMethod','exact');
     [C1_pred, C1_std] = predict(C1_mdl, Omega);
     Phi_c_1 = normcdf(C1_pred./C1_std);
 
     EIC = EI.*Phi_c_1;
 
-    [eicmax, posEIC] = max(EIC);
-    
-    % sort EIC (first element is the maximum)
-    [eicsorted, idx_eic] = sort(EIC,1,"descend");
+    % [eicmax, posEIC] = max(EIC);
+    % 
+    % % sort EIC (first element is the maximum)
+    % [eicsorted, idx_eic] = sort(EIC,1,"descend");
+    % 
+    % for j = 1:height(EIC)
+    %     xEIC = Omega(idx_eic(j), :);
+    %     XYcheck = X_e == xEIC;
+    %     check = XYcheck(:,1) & XYcheck(:,2);
+    %     % check for already visited points
+    %     if ~any(check)
+    %         break;
+    %     end
+    % end
 
-    for j = 1:height(EIC)
-        xEIC = Omega(idx_eic(j), :);
-        XYcheck = X_e == xEIC;
-        check = XYcheck(:,1) & XYcheck(:,2);
-        % check for already visited points
-        if ~any(check)
+    % sort EI (first element is the maximum)
+    [eicsorted, idx_eic] = sort(EIC, 1, "descend");
+
+    % re-arrange Points
+    OmegaSortedEIC = Omega(idx_eic,:);
+
+    % Algorithm for selecting the next point X
+    for j = 1:height(eicsorted)
+        % save the maximum EI (first elements)
+        eicmax = eicsorted(j);
+        % check for equal EI values
+        idxEqEIC = eicmax == eicsorted;
+        % Extract the set of posible x's in which EI is maximum
+        posibleX = OmegaSortedEIC(idxEqEIC, :);
+        % Select a random X from the set (if there are many)
+        idx_rand = randi(height(posibleX));
+        xEIC = posibleX(idx_rand, :);
+        % check for already visited point, if already visited, iterate
+        % again
+        flag_visitedP = ismember(xEIC, X_e, "rows");
+        if ~flag_visitedP
             break;
         end
     end
-
-    % xEIC = Omega(posEIC,:);
 
     X_e(end+1,:) = xEIC;
 
