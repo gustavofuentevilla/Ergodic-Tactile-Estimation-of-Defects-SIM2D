@@ -76,7 +76,7 @@ Phi_x = pdf(gm_dist, Omega);
 
 %% Tiempos
 
-N_MaxSamples = 20;
+N_MaxSamples = 200;
 
 % t_f = 20;           %Tiempo final por iteración
 % T_s = 0.1;                  % Tiempo de muestreo
@@ -140,7 +140,8 @@ X_e = X0(1,:);
 X_e_sp = X_e;
 
 % Take the measurements
-V = a + b*pdf(gm_dist, X_e_sp) + c*randn(height(X_e_sp), 1);
+delta = c*randn(height(X_e_sp), 1);
+V = a + b*pdf(gm_dist, X_e_sp) + delta;
 
 t_exec = 0;
 
@@ -240,6 +241,8 @@ set(findall(fig1h, "-property", "FontSize"), "FontSize", 20)
 
 %% Loop
 
+timer_iter = zeros(N_MaxSamples, 1);
+
 for i = height(X_e):N_MaxSamples
 
     % avgV = mean(V);
@@ -252,6 +255,8 @@ for i = height(X_e):N_MaxSamples
     % V_normalized = (V - avgV)/stdV;
     % mdl = fitrgp(X_e_sp, V_normalized);
 
+    timer_init = tic;
+
     mdl = fitrgp(X_e_sp, V,...
                 'KernelFunction', 'squaredexponential',...
                 'Standardize',true,...
@@ -259,7 +264,6 @@ for i = height(X_e):N_MaxSamples
                 'BasisFunction','constant',...
                 'PredictMethod','exact');
     [V_pred, sd] = predict(mdl, Omega);
-    % Loss = resubLoss(mdl);
 
     %% Expected Improvement
     % This EI is from http://krasserm.github.io/2018/03/21/bayesian-optimization/
@@ -324,9 +328,13 @@ for i = height(X_e):N_MaxSamples
     X_e_sp_new = [x_e_sp, y_e_sp];
     X_e_sp(end+1:end+height(X_e_sp_new), :) = X_e_sp_new;
     % Update the measurement vector
-    V_new = a + b*pdf(gm_dist, X_e_sp_new) + c*randn(height(X_e_sp_new), 1);
+    delta_new = c*randn(height(X_e_sp_new), 1);
+    V_new = a + b*pdf(gm_dist, X_e_sp_new) + delta_new;
+    delta = [delta; delta_new];
     V = [V; 
         V_new];
+
+    timer_iter(i) = toc(timer_init);
     
     i
 
@@ -396,5 +404,32 @@ set(findall(fig2h, "-property", "FontSize"), "FontSize", 20)
 
 %% Post-processing
 
+thres_meas = a + max(delta);
 
+% Locate values above threshold
+idx_V = V > thres_meas; 
+
+Data = [X_e_sp(idx_V,:), V(idx_V)];
+
+% V Conversion to int
+V_int = round(Data(:,3));    
+% Repeat elements on spatial domain (trajectory points)
+Data_Xe_hist_V = repelem(Data(:,1:2), V_int, 1); 
+% Without repeating position elements:
+% Data_Xe_hist_V = Data(:,1:2); 
+
+% Evaluate for optimal number of clusters
+D_max = 5;
+clust_eval = evalclusters(Data_Xe_hist_V,"kmeans","silhouette",...
+                                  KList=2:D_max);
+numComponents = clust_eval.OptimalK;
+
+% Define the model
+Model = GMM_EM(Data_Xe_hist_V, numComponents,...
+                   "Max_iter", 500, "Min_var", 1e-10);
+
+% Extracting model parameters
+Mu_found = Model.Mu;
+Sigma_found = Model.Sigma;
+Priors_found = Model.Priors;
 
