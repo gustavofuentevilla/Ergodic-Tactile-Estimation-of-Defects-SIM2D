@@ -1,52 +1,44 @@
 close all
-clearvars -except Erg_traj_ipopt
+clear
 clc
 
 %%
 % Test (2: Same severity levels, 3: Different severity levels)}
-Test_i = 3;
+Test_i = 2;
 % Case (1: full algoritm, 2: No repeating points, 3: No removing gaussians)
-Case_i = 3;
+Case_i = 1;
 % Number of Defectss
-def = 5;
+def = 7;
 % Number of initial positions
 totalX0 = 20;
 % Number of tests per initial position
 totalOut = 5;
 
 % Buffers for:
-nbIter = zeros(totalX0,totalOut);   % Number of iterations
+nbSamples = zeros(totalX0,totalOut);   % Number of iterations
 nbMu = zeros(totalX0,totalOut);     % Number of found defects
-Tsim = zeros(totalX0,totalOut);     % Simulation times
-T_traj = cell(totalX0,totalOut);    % Time spend computing ergodic trajectory
-T_PDF = cell(totalX0,totalOut);     % Time spend computing the PDF
+T_PDF_buffer = zeros(totalX0,totalOut);
 T_iter = cell(totalX0,totalOut);    % Times per iteration
 Mu_buffer = cell(totalX0,totalOut);
 Mu_found_buffer = cell(totalX0,totalOut);
 
-checkidx = false(totalX0,totalOut);
-
 for X0_i = 1:totalX0
     for out_i = 1:totalOut
         % Loading file and extract variables
-        filename = "Test" + Test_i + "/Case" + Case_i +...
-                   "/" + def + "Def_new/X0_" + X0_i + ...
+        filename = "BO_unconsTest/Test" + Test_i + ...
+                    "_new/Case" + Case_i +...
+                   "/" + def + "Def/X0_" + X0_i + ...
                     "/output_" + out_i + ".mat";
-        load(filename, "n_iter", "Mu_found", "T_sim_toc", "Estim_sol",...
-             "T_ErgC_i", "T_PDF_i", "Mu")
+        load(filename, "samples", "Mu_found", "timer_iter", "Estim_sol",...
+             "Mu", "timer_PDF", "BO_samples")
         
         % Save data into matrix (row = initial position; column = test)
-        nbIter(X0_i, out_i) = n_iter;
+        nbSamples(X0_i, out_i) = BO_samples;
         nbMu(X0_i, out_i) = height(Mu_found);
 
-        % Checking
-        checkidx(X0_i, out_i) = height(Estim_sol(end).Mu_found) < def;
-
-        % Times
-        Tsim(X0_i, out_i) = T_sim_toc;
-        T_traj{X0_i, out_i} = T_ErgC_i;
-        T_PDF{X0_i, out_i} = T_PDF_i;
-        T_iter{X0_i, out_i} = T_ErgC_i + T_PDF_i;
+        % Iteration times
+        T_iter{X0_i, out_i} = timer_iter;
+        T_PDF_buffer(X0_i, out_i) = timer_PDF; 
 
         % Defect locations
         Mu_buffer{X0_i, out_i} = Mu;
@@ -54,7 +46,7 @@ for X0_i = 1:totalX0
     end
 end
 
-% Success rate (Number of tests in which all the defects are found)
+%% Success rate (Number of tests in which all the defects are found)
 successRate = sum(nbMu == def, 'all') / numel(nbMu) * 100;
 
 % Success rate (porcentage of overall found defects)
@@ -66,20 +58,17 @@ for X0_i = 1:totalX0
 end
 SR_def = TotalFoundDef/(def*totalX0*totalOut) * 100;
 
-% Calculate the average values and standard deviations
-avgIter = mean(nbIter, "all");
-avgTsim = mean(Tsim, "all");
-
-stdIter = std(nbIter, 0, "all");
-stdTsim = std(Tsim, 0, "all");
+% Calculate the average values and standard deviations of total samples
+avgSamples = mean(nbSamples, "all");
+stdSamples = std(nbSamples, 0, "all");
 
 % Simulation time per iteration
 TimePerIter = [];
-
 for X0_i = 1:totalX0
     for out_i = 1:totalOut
         TimePerIter = [TimePerIter; 
-                       T_iter{X0_i, out_i}(1:nbIter(X0_i, out_i))];
+                       T_iter{X0_i, out_i}(1:nbSamples(X0_i, out_i)) + ...
+                       T_PDF_buffer(X0_i, out_i)/nbSamples(X0_i, out_i)];
     end
 end
 

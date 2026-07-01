@@ -43,20 +43,22 @@ Omega = [reshape(x_1_grid,[],1), reshape(x_2_grid,[],1)];
 
 n_def = 3;
 
-[Mu, Sigma, r_elips_Phi] = DefectsGen(n_def, L_i_l, L_i_u);
+% [Mu, Sigma, r_elips_Phi] = DefectsGen(n_def, L_i_l, L_i_u);
 
-% Mu = [0.7794, 1.3710;
-%       0.8808, 0.5842;
-%       1.1357, 1.2847];
-% 
-% Cov_1 = 1e-3 * [0.5, 0.25; 0.25, 0.5];
-% Cov_2 = 1e-3 * [0.5, -0.25; -0.25, 0.5];
-% Cov_3 = 1e-3 * [0.5, 0.0; 0.0, 0.5];
-% 
-% Sigma = cat(3, Cov_1, Cov_2, Cov_3);
-% 
-% r_elips_Phi = [0.0474, 0.0474, 0.0671;
-%                0.0822, 0.0822, 0.0671];
+%
+Mu = [0.7794, 1.3710;
+      0.8808, 0.5842;
+      1.1357, 1.2847];
+
+Cov_1 = 1e-3 * [0.5, 0.25; 0.25, 0.5];
+Cov_2 = 1e-3 * [0.5, -0.25; -0.25, 0.5];
+Cov_3 = 1e-3 * [0.5, 0.0; 0.0, 0.5];
+
+Sigma = cat(3, Cov_1, Cov_2, Cov_3);
+
+r_elips_Phi = [0.0474, 0.0474, 0.0671;
+               0.0822, 0.0822, 0.0671];
+%
 
 gm_dist = gmdistribution(Mu, Sigma);% , proporciones);
 
@@ -245,7 +247,9 @@ Lambda_k = (1 + vecnorm(K_cal, p, 1)').^(-(n + 1)/2);
 
 %% vector to add more points on the trajectory and get more data from sensor
 
-t_spline = (0:0.01:t_f)'; %Time vector por spline in one iteration
+freq_spline = 200;
+T_s_spline = 1/freq_spline;
+t_spline = (0:T_s_spline:t_f)'; %Time vector por spline in one iteration
 
 %% Loop for the Search task
 n_iter_max = 10;

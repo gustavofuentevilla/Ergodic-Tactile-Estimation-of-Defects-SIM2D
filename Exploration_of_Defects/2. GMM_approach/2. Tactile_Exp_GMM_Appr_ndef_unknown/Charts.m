@@ -4,6 +4,15 @@ close all
 clearvars -except Erg_traj_ipopt
 clc
 
+% Test:
+%       1: 1x1 search space, poor trajectory complexities
+%       2: Same defect severities
+%       3: Different defect severities
+% Case:
+%       1: Full algorithm
+%       2: No repeating points
+%       3: No elimination of Gaussian components
+
 load("Test3/Case2/7Def/X0_15/output_3.mat")
 
 %% Reconstrucción de distribución empírica y métrica ergódica

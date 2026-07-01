@@ -1,5 +1,16 @@
+% Script for testing the BO approach through several simulations
+
+% Test2 : Equal Severity levels
+% Test3 : Different severity levels
+% Case1 : Full algorithm
+% Case2 : Without repeating points
+
+for idx_X0 = 1:20
+
+for run_idx = 1:5
+
 close all
-clear
+clearvars -except run_idx idx_X0
 clc
 
 %% Parámetros del espacio de búsqueda U = [L_1_l, L_1_u] \times [L_2_l, L_2_u]
@@ -19,6 +30,7 @@ dx_1 = L_1/100;
 dx_2 = L_2/100;
 
 % Dimensiones \mathbf{x} = [x_1 x_2]^T
+
 x_1 = (L_1_l:dx_1:L_1_u)';
 x_2 = (L_2_l:dx_2:L_2_u)';
 
@@ -58,17 +70,25 @@ X0 = [L_1_l, L_2_l;
 
 %% Defects definition
 
-n_def = 3;
+n_def = 5;
 
-% Save random number generator to reproduce Tests
-rng_saved = rng;
+% Load random number generator to reproduce Tests (from Case 1)
+load(sprintf("/home/gustavo-fuentevilla/MATLAB/"...
+    + "Ergodic_Tactile_Estimation_of_Defects_SIM2D/"...
+    + "Exploration_of_Defects/2. GMM_approach/"...
+    + "2. Tactile_Exp_GMM_Appr_ndef_unknown/"...
+    + "Test3/Case1/%dDef/X0_%d/output_%d.mat",...
+             n_def, idx_X0, run_idx), "rng_saved")
+rng(rng_saved)
 
 % Defects generator
 [Mu, Sigma, r_elips_Phi] = DefectsGen(n_def, L_i_l, L_i_u);
 
-proportions = [1/(1+2+3),...
-               2/(1+2+3),...
-               3/(1+2+3)];
+proportions = [1/(1+1+2+2+3),...
+               1/(1+1+2+2+3),...
+               2/(1+1+2+2+3),...
+               2/(1+1+2+2+3),...
+               3/(1+1+2+2+3)];
 gm_dist = gmdistribution(Mu, Sigma, proportions);
 
 %PDF de referencia REAL
@@ -100,7 +120,7 @@ c = 0.05; %Amplitud del ruido en la medición 0.05
 V_real = a + b*Phi_x;
 
 % Initial position
-X_e = X0(1,:);
+X_e = X0(idx_X0,:);
 
 % Generate a random first displacement within the velocity constraint
 % dmax = v_max*T_s; % Maximum displacement
@@ -135,8 +155,9 @@ X_e = X0(1,:);
 % Interpolate to a 200Hz trajectory
 % x_e_sp = spline(t(1:height(X_e)), X_e(:,1), t_interp);
 % y_e_sp = spline(t(1:height(X_e)), X_e(:,2), t_interp);
-
+%
 % X_e_sp = [x_e_sp, y_e_sp];
+
 X_e_sp = X_e;
 
 % Take the measurements
@@ -145,103 +166,10 @@ V = a + b*pdf(gm_dist, X_e_sp) + delta;
 
 t_exec = 0;
 
-%% Plots
-
-fig1h = figure(1);
-tiledlayout(3,3)
-
-nexttile(1)
-TrueF_plot = surf(x_1_grid, x_2_grid, reshape(V_real, length(x_2), length(x_1)),...
-                 "EdgeColor", "none", "FaceColor", "interp");
-xlim([L_1_l, L_1_u])
-ylim([L_2_l, L_2_u])
-title("Ground Truth Function to be Optimized")
-xlabel('$x_1$ [m]')
-ylabel('$x_2$ [m]')
-grid on
-
-nexttile(2)
-Pred_plot = surf(x_1_grid, x_2_grid, reshape(zeros(height(Omega),1), length(x_2), length(x_1)),...
-                "EdgeColor", "none", "FaceColor", "interp");
-xlim([L_1_l, L_1_u])
-ylim([L_2_l, L_2_u])
-title("GPR Prediction")
-xlabel('$x_1$ [m]')
-ylabel('$x_2$ [m]')
-grid on
-
-nexttile(3)
-pcolor(x_1_grid, x_2_grid, reshape(Phi_x, length(x_2), length(x_1)),...
-    "EdgeColor", "none", "FaceColor", "interp")
-hold on
-Traj_sp_plot = plot(X_e_sp(:,1), X_e_sp(:,2),'g','LineWidth', 2,...
-                    'Marker','*', 'MarkerSize',6);
-Traj_plot = plot(X_e(:,1), X_e(:,2),'k','LineWidth', 2,...
-                'Marker','*', 'MarkerSize',8);
-Traj_act_plot = plot(X_e(:,1), X_e(:,2),'red','LineWidth', 2,...
-                'Marker','o', "MarkerFaceColor", "red", 'MarkerSize',8);
-plot(X_e(1,1), X_e(1,2), 'rsq', 'LineWidth',4, 'MarkerSize',12)
-hold off
-axis equal
-xlim([L_1_l, L_1_u])
-ylim([L_2_l, L_2_u])
-title("Evolution in Omega")
-
-nexttile(4)
-sd_plot = surf(x_1_grid, x_2_grid, reshape(zeros(height(Omega),1), length(x_2), length(x_1)),...
-        "EdgeColor", "none", "FaceColor", "interp");
-xlim([L_1_l, L_1_u])
-ylim([L_2_l, L_2_u])
-title('Uncertainty')
-
-nexttile(5)
-EI_plot = surf(x_1_grid, x_2_grid, reshape(zeros(height(Omega),1), length(x_2), length(x_1)),...
-                "EdgeColor", "none", "FaceColor", "interp");
-hold on
-xPosEI_plot = plot3([1, 1],xrange(2,:),0*[1 1],'--k','LineWidth',1.5);
-yPosEI_plot = plot3(xrange(1,:),[1, 1],0*[1 1],'--k','LineWidth',1.5); 
-hold off; 
-xlim([L_1_l, L_1_u])
-ylim([L_2_l, L_2_u])
-title('Expected Improvement'); 
-grid on;
-
-nexttile(6)
-Est_plot = pcolor(x_1_grid, x_2_grid, reshape(zeros(height(Omega),1), length(x_2), length(x_1)),...
-                 "EdgeColor", "none", "FaceColor", "interp");
-axis equal
-xlim([L_1_l, L_1_u])
-ylim([L_2_l, L_2_u])
-title("Estimation")
-
-nexttile(7, [1, 2])
-loglikelihood = 0;
-loglikelihood_plot = plot(0, loglikelihood, "LineWidth", 2);
-title("Log-likelihood")
-xlabel('Iteration')
-grid on
-
-% nexttile(8)
-% d_likelihood = 1;
-% d_likelihood_plot = plot(t(1), d_likelihood, "LineWidth", 2);
-% title("change in Log-likelihood")
-% xlabel('Time [s]')
-% grid on
-% 
-% nexttile(9)
-% Loss = 1;
-% loss_plot = plot(t(1), Loss, "LineWidth", 2);
-% title("Loss")
-% xlabel('Time [s]')
-% grid on
-
-set(findall(fig1h,'-property','Interpreter'),'Interpreter','latex') 
-set(findall(fig1h,'-property','TickLabelInterpreter'),'TickLabelInterpreter','latex')
-set(findall(fig1h, "-property", "FontSize"), "FontSize", 20)
-
 %% Loop
 
 timer_iter = zeros(N_MaxSamples, 1);
+loglikelihood = [];
 
 for i = height(X_e):N_MaxSamples
 
@@ -300,18 +228,6 @@ for i = height(X_e):N_MaxSamples
         end
     end
 
-    % Select the next point based on `EI
-    % for j = 1:height(eisorted)
-    %     eimax = eisorted(j);
-    %     xEI = Omega(idx_ei(j), :);
-    %     % check for already visited point
-    %     XYcheck = X_e == xEI;
-    %     check = XYcheck(:,1) & XYcheck(:,2);
-    %     if ~any(check)
-    %         break;
-    %     end
-    % end
-
     X_e(end + 1,:) = xEI;
 
     % distance from current BO sample to the next
@@ -321,8 +237,8 @@ for i = height(X_e):N_MaxSamples
     % Execution time vector
     t_exec = [t_exec; t_exec(end) + t_traj];
     % Make interpolation
-    t_interp = (t_exec(end-1):T_s_interp:t_exec(end)-T_s_interp)';
-    % t_interp = (t_exec(end-1):T_s_interp:t_exec(end))';
+    % t_interp = (t_exec(end-1):T_s_interp:t_exec(end)-T_s_interp)';
+    t_interp = (t_exec(end-1):T_s_interp:t_exec(end))';
     x_e_sp = spline(t_exec(end-1:end), X_e(end-1:end,1), t_interp);
     y_e_sp = spline(t_exec(end-1:end), X_e(end-1:end,2), t_interp);
     X_e_sp_new = [x_e_sp, y_e_sp];
@@ -334,102 +250,51 @@ for i = height(X_e):N_MaxSamples
     V = [V; 
         V_new];
 
-    timer_iter(i) = toc(timer_init);
-    
-    i
-
-    %% update plots
-
-    Pred_plot.ZData = reshape(V_pred, length(x_2), length(x_1));
-    sd_plot.ZData = reshape(sd, length(x_2), length(x_1));
-    EI_plot.ZData = reshape(EI, length(x_2), length(x_1));
-    Est_plot.CData = reshape(V_pred, length(x_2), length(x_1));
-    xPosEI_plot.XData = xEI([1, 1]);
-    xPosEI_plot.ZData = eimax*[1 1];
-    yPosEI_plot.YData = xEI([2, 2]);
-    yPosEI_plot.ZData = eimax*[1 1];
-    
-    Traj_sp_plot.XData(end + 1 : end + height(x_e_sp)) = x_e_sp';
-    Traj_sp_plot.YData(end + 1 : end + height(y_e_sp)) = y_e_sp';
-    Traj_plot.XData(end + 1) = X_e(end,1);
-    Traj_plot.YData(end + 1) = X_e(end,2);
-    Traj_act_plot.XData = X_e(end,1);
-    Traj_act_plot.YData = X_e(end,2);
-
-    % Update the log-likelihood plot
+    % Update the log-likelihood
 
     loglikelihood = [loglikelihood;...
                     mdl.LogLikelihood];
 
-    loglikelihood_plot.XData(end + 1) = i;
-    loglikelihood_plot.YData(end + 1) = loglikelihood(end);
+    timer_iter(i) = toc(timer_init);
 
     % Exit the loop when the LogLikelihood is low enough
     if mdl.LogLikelihood <= -1000
         disp("LogLikelihood reached the condition")
+        samples = i;
         break;
     end
 
-    pause(0.1)
+    samples = i
+
+    mdl.LogLikelihood
 
 end
 
-%% More plots xd
-
-t = linspace(0, t_exec(end), height(X_e_sp))';
-v_normplot = sqrt(sum((diff(X_e_sp)/T_s_interp).^2, 2));
-v_normplot(end + 1) = v_normplot(end);
-
-fig2h = figure(2);
-tiledlayout(3,1)
-
-nexttile(1)
-plot(t, X_e_sp, "LineWidth", 3)
-% plot(t_exec, X_e, "LineWidth", 3)
-xlabel('Time [s]')
-ylabel('Position [m]')
-title("Position")
-legend("$x_{e_1}$", "$x_{e_2}$")
-
-nexttile(2)
-plot(t, v_normplot, "LineWidth", 3)
-xlabel('Time [s]')
-ylabel('Velocity [m/s]')
-title('Velocity norm')
-grid on;
-
-set(findall(fig2h,'-property','Interpreter'),'Interpreter','latex') 
-set(findall(fig2h,'-property','TickLabelInterpreter'),'TickLabelInterpreter','latex')
-set(findall(fig2h, "-property", "FontSize"), "FontSize", 20)
-
 %% Post-processing
 
-thres_meas = a + max(delta);
+timer_PDF_init = tic;
 
-% Locate values above threshold
-idx_V = V > thres_meas; 
+Par_PDF.thres_meas = a + max(delta);
+Par_PDF.D_max = 10;
+Par_PDF.Thres_Variation = max(sum(r_elips_Phi));
+Par_PDF.OneClustDistLimit = 2*max(r_elips_Phi,[],"all") + 0.07;
 
-Data = [X_e_sp(idx_V,:), V(idx_V)];
+Estim_sol = BO_Postprocessing(X_e_sp, V, Par_PDF);
 
-% V Conversion to int
-V_int = round(Data(:,3));    
-% Repeat elements on spatial domain (trajectory points)
-Data_Xe_hist_V = repelem(Data(:,1:2), V_int, 1); 
-% Without repeating position elements:
-% Data_Xe_hist_V = Data(:,1:2); 
+Priors_found = Estim_sol.Priors_found;
+Mu_found = Estim_sol.Mu_found;
+Sigma_found = Estim_sol.Sigma_found_a;
 
-% Evaluate for optimal number of clusters
-D_max = 5;
-clust_eval = evalclusters(Data_Xe_hist_V,"kmeans","silhouette",...
-                                  KList=2:D_max);
-numComponents = clust_eval.OptimalK;
+timer_PDF = toc(timer_PDF_init);
 
-% Define the model
-Model = GMM_EM(Data_Xe_hist_V, numComponents,...
-                   "Max_iter", 500, "Min_var", 1e-10);
+%% Save test
 
-% Extracting model parameters
-Mu_found = Model.Mu;
-Sigma_found = Model.Sigma;
-Priors_found = Model.Priors;
+save(sprintf("/home/gustavo-fuentevilla/MATLAB/"...
+    + "Ergodic_Tactile_Estimation_of_Defects_SIM2D/"...
+    + "Exploration_of_Defects/2. GMM_approach/"...
+    + "2. Tactile_Exp_GMM_Appr_ndef_unknown/"...
+    + "BO_Approach/BO_unconsTest/Test3/Case1/%dDef/X0_%d/output_%d.mat",...
+             n_def, idx_X0, run_idx));
 
+end
+end

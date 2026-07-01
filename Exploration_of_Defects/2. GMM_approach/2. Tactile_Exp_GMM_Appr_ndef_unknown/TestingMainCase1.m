@@ -2,6 +2,9 @@
 % import casadi.*
 % Erg_traj_ipopt = Function.load('/home/gustavo-fuentevilla/MATLAB/Ergodic_Tactile_Estimation_of_Defects_SIM2D/Casadi_Formulation_ExplTask/Erg_traj_2.casadi');
 
+%(7,4) mil| (8,1) 967
+%(13,2) 2mil
+
 for idx_X0 = 1:20
 
 for run_idx = 1:5
@@ -67,17 +70,27 @@ X0 = [L_1_l, L_2_l;
 
 %% Defects definition
 
-n_def = 3;
+n_def = 5;
 
 % Save random number generator to reproduce Tests
+% load(sprintf("/home/gustavo-fuentevilla/MATLAB/"...
+%     + "Ergodic_Tactile_Estimation_of_Defects_SIM2D/"...
+%     + "Exploration_of_Defects/2. GMM_approach/"...
+%     + "2. Tactile_Exp_GMM_Appr_ndef_unknown/"...
+%     + "Test3/Case1/%dDef/X0_%d/output_%d.mat",...
+%              n_def, idx_X0, run_idx), "rng_saved")
+% rng(rng_saved)
+
 rng_saved = rng;
 
 % Defects generator
 [Mu, Sigma, r_elips_Phi] = DefectsGen(n_def, L_i_l, L_i_u);
 
-proportions = [1/(1+2+3),...
-               2/(1+2+3),...
-               3/(1+2+3)];
+proportions = [1/(1+1+2+2+3),...
+               1/(1+1+2+2+3),...
+               2/(1+1+2+2+3),...
+               2/(1+1+2+2+3),...
+               3/(1+1+2+2+3)];
 gm_dist = gmdistribution(Mu, Sigma, proportions);
 
 %PDF de referencia REAL
