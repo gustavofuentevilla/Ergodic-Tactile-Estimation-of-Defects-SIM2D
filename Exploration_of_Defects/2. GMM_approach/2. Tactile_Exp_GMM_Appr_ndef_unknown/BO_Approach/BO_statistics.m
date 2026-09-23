@@ -4,7 +4,7 @@ clc
 
 %%
 % Test (2: Same severity levels, 3: Different severity levels)}
-Test_i = 2;
+Test_i = 3;
 % Case (1: full algoritm, 2: No repeating points, 3: No removing gaussians)
 Case_i = 1;
 % Number of Defectss
@@ -26,7 +26,7 @@ for X0_i = 1:totalX0
     for out_i = 1:totalOut
         % Loading file and extract variables
         filename = "BO_unconsTest/Test" + Test_i + ...
-                    "_new/Case" + Case_i +...
+                    "_tm/Case" + Case_i +...
                    "/" + def + "Def/X0_" + X0_i + ...
                     "/output_" + out_i + ".mat";
         load(filename, "samples", "Mu_found", "timer_iter", "Estim_sol",...
