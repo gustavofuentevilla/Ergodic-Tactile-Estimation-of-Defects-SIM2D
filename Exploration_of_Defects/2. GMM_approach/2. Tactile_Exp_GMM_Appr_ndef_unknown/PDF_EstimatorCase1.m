@@ -4,7 +4,7 @@ Omega = Par_PDF.Omega;
 dx_1 = Par_PDF.dx_1;
 dx_2 = Par_PDF.dx_2;
 % K = Par_PDF.K;
-nbDef_range = Par_PDF.nbDef_range;
+D_max = Par_PDF.D_max;
 thres_meas = Par_PDF.thres_meas;
 iteration = Par_PDF.iteration;
 
@@ -134,7 +134,7 @@ if ~flag_OneCluster
         % (DaviesBouldin, silhouette)
 
         clust_eval = evalclusters(Data_Xe_hist_V,"kmeans","silhouette",...
-                                  KList=min(nbDef_range):max(nbDef_range));
+                                  KList=2:D_max);
         numComponents = clust_eval.OptimalK;
         
         % Define the model with the optimal number of components

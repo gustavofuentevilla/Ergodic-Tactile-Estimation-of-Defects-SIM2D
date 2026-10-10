@@ -2,7 +2,7 @@ close all
 clear
 clc
 %%
-load("BO_unconsTest/Test3_dist/Case1/7Def/X0_2/output_5.mat")
+load("BO_TD_Test/Test3/Case1/7Def/X0_1/output_1.mat")
 
 %% Plot results
 
@@ -140,7 +140,9 @@ ylabel('Velocity [m/s]')
 title('Velocity norm')
 grid on;
 
-samples = BO_samples;
+% Comment for BO_TD_Test
+% samples = BO_samples;
+
 nexttile(3)
 tmp = (1:samples)';
 loglikelihood_plot = plot(tmp, loglikelihood(end-samples+1:end), "LineWidth", 2);

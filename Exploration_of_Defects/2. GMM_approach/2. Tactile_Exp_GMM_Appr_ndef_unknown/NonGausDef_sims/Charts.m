@@ -13,7 +13,7 @@ clc
 %       2: No repeating points
 %       3: No elimination of Gaussian components
 
-load("Results/output_21.mat")
+load("Results/output_25.mat")
 
 % To publish: output_21 | 22 | 25
 

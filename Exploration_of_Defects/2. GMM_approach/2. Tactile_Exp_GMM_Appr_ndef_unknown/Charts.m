@@ -13,7 +13,7 @@ clc
 %       2: No repeating points
 %       3: No elimination of Gaussian components
 
-load("Test3/Case2/7Def/X0_15/output_3.mat")
+load("Test3/Case4/7Def/X0_10/output_2.mat")
 
 %% Reconstrucción de distribución empírica y métrica ergódica
 

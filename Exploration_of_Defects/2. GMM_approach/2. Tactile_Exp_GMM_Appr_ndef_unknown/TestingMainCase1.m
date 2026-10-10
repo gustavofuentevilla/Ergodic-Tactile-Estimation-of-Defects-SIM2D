@@ -188,7 +188,7 @@ Par_PDF.dx_1 = dx_1;
 Par_PDF.dx_2 = dx_2;
 Par_PDF.Meas_mean = a;
 % Range of possible Number of defects to be found
-Par_PDF.nbDef_range = [1, n_def + 2]; 
+Par_PDF.D_max = n_def + 2; 
 
 Par_PDF.Prev_Data = [];
 % Par_PDF.Prev_Priors = [];

@@ -5,11 +5,11 @@ clc
 %% 
 
 % Test (2: Same severity levels, 3: Different severity levels)}
-Test_i = 3;
+Test_i = 2;
 % Case (1: full algoritm (TEDD), 2: No repeating points, 3: No removing gaussians)
-Case_i = 1;
+Case_i = 4;
 % Number of Defectss
-def = 7;
+def = 3;
 % Number of initial positions
 totalX0 = 20;
 % Number of tests per initial position
@@ -18,7 +18,7 @@ totalOut = 5;
 for X0_i = 1:totalX0
     for out_i = 1:totalOut
         
-        % Load TEDD iteration time
+        % Load TEDD files
         filename = "/home/gustavo-fuentevilla/MATLAB/" + ...
                    "Ergodic_Tactile_Estimation_of_Defects_SIM2D/" + ...
                    "Exploration_of_Defects/2. GMM_approach/" + ...
@@ -39,18 +39,18 @@ for X0_i = 1:totalX0
         Tact_meas = n_iter * size(X_e_spline_reg, 1);
 
         % Load BO data
-        filename = "BO_unconsTest/Test" + Test_i + "/Case" + Case_i +...
+        filename = "BO_unconsTest/Test" + Test_i + "/Case1" + ...
                    "/" + def + "Def/X0_" + X0_i + ...
                     "/output_" + out_i + ".mat";
         load(filename)
         
         % Compute the number of BO samples achieved when BO simulation time
         %  is larger than TEDD simulation time
-        % for BO_samples = 1:samples
-        %     if sum(timer_iter(1:BO_samples)) > TEDD_time
-        %         break;
-        %     end
-        % end
+        for BO_samples = 1:samples
+            if sum(timer_iter(1:BO_samples)) > TEDD_time
+                break;
+            end
+        end
 
         % Compute the number of BO samples achieved when BO traveled
         % distance is larger than TEDD's
@@ -66,16 +66,16 @@ for X0_i = 1:totalX0
 
         % Compute the number of BO samples when the number of tactile
         % measurements are larger than TEDD's
-
-        for BO_samples = 1:samples
-            [~, idx_init] = ismember(X_e(BO_samples,:), X_e_sp, "rows");
-            [~, idx_final] = ismember(X_e(BO_samples+1,:), X_e_sp, "rows");
-            X_extract = X_e_sp(idx_init:idx_final, :);
-            BOtactileMeasurements = size(X_extract, 1);
-            if BOtactileMeasurements >= Tact_meas
-                break;
-            end
-        end
+        % 
+        % for BO_samples = 1:samples
+        %     [~, idx_init] = ismember(X_e(BO_samples,:), X_e_sp, "rows");
+        %     [~, idx_final] = ismember(X_e(BO_samples+1,:), X_e_sp, "rows");
+        %     X_extract = X_e_sp(idx_init:idx_final, :);
+        %     BOtactileMeasurements = size(X_extract, 1);
+        %     if BOtactileMeasurements >= Tact_meas
+        %         break;
+        %     end
+        % end
         
         % Remove posterior data to that sample if BO takes more time than
         % TEDD
@@ -96,20 +96,20 @@ for X0_i = 1:totalX0
         
         Par_PDF.thres_meas = a + max(delta);
         Par_PDF.D_max = 10;
-        Par_PDF.Thres_Variation = max(sum(r_elips_Phi));
+        % Par_PDF.Thres_Variation = max(sum(r_elips_Phi));
         Par_PDF.OneClustDistLimit = 2*max(r_elips_Phi,[],"all") + 0.07;
         
-        Estim_sol = BO_Postprocessing(X_e_sp, V, Par_PDF);
+        Estim_sol = Postprocessing(X_e_sp, V, Par_PDF);
         
         Priors_found = Estim_sol.Priors_found;
         Mu_found = Estim_sol.Mu_found;
-        Sigma_found = Estim_sol.Sigma_found_a;
+        Sigma_found = Estim_sol.Sigma_found;
         
         timer_PDF = toc(timer_PDF_init);
 
 
         % Save new simulations
-        filename = "BO_unconsTest/Test" + Test_i + "_tm/Case" + Case_i +...
+        filename = "BO_Time_Test/Test" + Test_i + ...
                    "/" + def + "Def/X0_" + X0_i + ...
                     "/output_" + out_i + ".mat";
 

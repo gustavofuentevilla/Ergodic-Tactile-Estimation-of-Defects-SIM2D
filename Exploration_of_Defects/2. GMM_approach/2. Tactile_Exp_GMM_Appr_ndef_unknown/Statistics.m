@@ -5,10 +5,10 @@ clc
 %%
 % Test (2: Same severity levels, 3: Different severity levels)}
 Test_i = 3;
-% Case (1: full algoritm, 2: No repeating points, 3: No removing gaussians)
-Case_i = 3;
+% Case (1: TEDD full algoritm, 2: TEDD-R No repeating points, 3: TEDD-T No removing gaussians)
+Case_i = 1;
 % Number of Defectss
-def = 5;
+def = 7;
 % Number of initial positions
 totalX0 = 20;
 % Number of tests per initial position
@@ -23,6 +23,9 @@ T_PDF = cell(totalX0,totalOut);     % Time spend computing the PDF
 T_iter = cell(totalX0,totalOut);    % Times per iteration
 Mu_buffer = cell(totalX0,totalOut);
 Mu_found_buffer = cell(totalX0,totalOut);
+Sigma_buffer = cell(totalX0,totalOut);
+Sigma_found_buffer = cell(totalX0,totalOut);
+V_buffer = zeros(totalX0, totalOut);
 
 checkidx = false(totalX0,totalOut);
 
@@ -30,10 +33,10 @@ for X0_i = 1:totalX0
     for out_i = 1:totalOut
         % Loading file and extract variables
         filename = "Test" + Test_i + "/Case" + Case_i +...
-                   "/" + def + "Def_new/X0_" + X0_i + ...
+                   "/" + def + "Def/X0_" + X0_i + ...
                     "/output_" + out_i + ".mat";
         load(filename, "n_iter", "Mu_found", "T_sim_toc", "Estim_sol",...
-             "T_ErgC_i", "T_PDF_i", "Mu")
+             "T_ErgC_i", "T_PDF_i", "Mu", "Sigma", "Sigma_found", "V_Xe")
         
         % Save data into matrix (row = initial position; column = test)
         nbIter(X0_i, out_i) = n_iter;
@@ -51,10 +54,15 @@ for X0_i = 1:totalX0
         % Defect locations
         Mu_buffer{X0_i, out_i} = Mu;
         Mu_found_buffer{X0_i, out_i} = Mu_found;
+        % Defect Covariances
+        Sigma_buffer{X0_i, out_i} = Sigma;
+        Sigma_found_buffer{X0_i, out_i} = Sigma_found;
+        % Store number of tactile measurements
+        V_buffer(X0_i, out_i) = length(V_Xe)*n_iter;
     end
 end
 
-% Success rate (Number of tests in which all the defects are found)
+%% Success rate (Number of tests in which all the defects are found)
 successRate = sum(nbMu == def, 'all') / numel(nbMu) * 100;
 
 % Success rate (porcentage of overall found defects)
@@ -103,3 +111,54 @@ end
 
 avgLocationError = mean(e_centers);
 stdLocationError = std(e_centers);
+
+
+%% Shape metrics
+
+EllipseIoU = [];
+OrientationError = [];
+
+for X0_i = 1:totalX0
+    for out_i = 1:totalOut
+        % If found defects buffer its not empty
+        if ~isempty(Mu_found_buffer{X0_i, out_i})
+            k_idx = dsearchn(Mu_buffer{X0_i, out_i},...
+                             Mu_found_buffer{X0_i, out_i});
+            Mu_tmp = Mu_buffer{X0_i, out_i}(k_idx, :);
+            Sigma_tmp = Sigma_buffer{X0_i, out_i}(:,:,k_idx);
+            % Mu_tmp matches with current Mu_found_buffer{X0_i, out_i}
+            % Sigma_tmp matches with current Sigma_found_buffer{X0_i, out_i}
+
+            % Compute vector of Ellipse IoU metric on found defects
+            EllipseIoU_current = getEllipseIoU(...
+                                        Mu_tmp,...
+                                        Sigma_tmp,...
+                                        Mu_found_buffer{X0_i, out_i},...
+                                        Sigma_found_buffer{X0_i, out_i},...
+                                        100);
+            EllipseIoU = [EllipseIoU;...
+                          EllipseIoU_current];
+
+            % Compute vector of Major axis orientation errors on found
+            % defects
+            OrientationErrorCurrent = getOrientationError(...
+                                        Sigma_tmp,...
+                                        Sigma_found_buffer{X0_i, out_i});
+            OrientationError = [OrientationError; OrientationErrorCurrent];
+
+        end
+    end
+end
+
+% Mean and standard deviations
+avgEIoU = mean(EllipseIoU);
+stdEIoU = std(EllipseIoU);
+
+avgOrientationError = mean(OrientationError);
+stdOrientationError = std(OrientationError);
+
+
+%% Tactile measurements
+
+avgMeas = mean(V_buffer, "all");
+stdMeas = std(V_buffer,0, "all");

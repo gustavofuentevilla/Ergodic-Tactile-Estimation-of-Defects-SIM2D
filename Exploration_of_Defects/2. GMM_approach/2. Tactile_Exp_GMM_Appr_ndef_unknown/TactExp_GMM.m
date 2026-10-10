@@ -43,21 +43,21 @@ Omega = [reshape(x_1_grid,[],1), reshape(x_2_grid,[],1)];
 
 n_def = 3;
 
-% [Mu, Sigma, r_elips_Phi] = DefectsGen(n_def, L_i_l, L_i_u);
+[Mu, Sigma, r_elips_Phi] = DefectsGen(n_def, L_i_l, L_i_u);
 
 %
-Mu = [0.7794, 1.3710;
-      0.8808, 0.5842;
-      1.1357, 1.2847];
-
-Cov_1 = 1e-3 * [0.5, 0.25; 0.25, 0.5];
-Cov_2 = 1e-3 * [0.5, -0.25; -0.25, 0.5];
-Cov_3 = 1e-3 * [0.5, 0.0; 0.0, 0.5];
-
-Sigma = cat(3, Cov_1, Cov_2, Cov_3);
-
-r_elips_Phi = [0.0474, 0.0474, 0.0671;
-               0.0822, 0.0822, 0.0671];
+% Mu = [0.7794, 1.3710;
+%       0.8808, 0.5842;
+%       1.1357, 1.2847];
+% 
+% Cov_1 = 1e-3 * [0.5, 0.25; 0.25, 0.5];
+% Cov_2 = 1e-3 * [0.5, -0.25; -0.25, 0.5];
+% Cov_3 = 1e-3 * [0.5, 0.0; 0.0, 0.5];
+% 
+% Sigma = cat(3, Cov_1, Cov_2, Cov_3);
+% 
+% r_elips_Phi = [0.0474, 0.0474, 0.0671;
+%                0.0822, 0.0822, 0.0671];
 %
 
 gm_dist = gmdistribution(Mu, Sigma);% , proporciones);
@@ -283,7 +283,7 @@ Par_PDF.dx_1 = dx_1;
 Par_PDF.dx_2 = dx_2;
 Par_PDF.Meas_mean = a;
 % Range of possible Number of defects to be found
-Par_PDF.nbDef_range = [1, n_def + 2]; 
+Par_PDF.D_max = n_def + 2; 
 
 Par_PDF.Prev_Data = [];
 Par_PDF.Prev_numComponents = [];
