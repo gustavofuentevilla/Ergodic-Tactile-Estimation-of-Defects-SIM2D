@@ -1,4 +1,4 @@
-function [Phi_hat_x_next, Estim_sol] = PDF_Estimator(X_e, V, Par_PDF)
+function [Phi_hat_x_next, Estim_sol] = PDF_EstimatorCase1(X_e, V, Par_PDF)
 
 Omega = Par_PDF.Omega;
 dx_1 = Par_PDF.dx_1;
@@ -58,38 +58,6 @@ if ~isempty(Prev_Mu_found)
     % Remove data points that are inside the already found defects
     idx_remData = IsDataInEllipse(Data(:,1:2), Prev_Mu_found, Prev_Sigma_found);
     Data(idx_remData,:) = [];
-    if isempty(Data)
-        Phi_hat_x_next = zeros(height(Omega), 1);
-        
-        Estim_sol.GMModel = [];
-        Estim_sol.Data = Data;
-        Estim_sol.Preprocessed_V = Preprocessed_V;
-        Estim_sol.Data_Xe_hist_V = [];
-        Estim_sol.Priors = [];
-        Estim_sol.Mu = [];
-        Estim_sol.Sigma = [];
-        Estim_sol.Sigma_a = [];
-        Estim_sol.clust_eval = [];
-        Estim_sol.numComponents = Prev_numComponents;
-        Estim_sol.D_KL = [];
-        Estim_sol.Priors_found = [];
-        Estim_sol.Mu_found = Prev_Mu_found;
-        Estim_sol.Sigma_found = Prev_Sigma_found;
-        % Estim_sol.Delta_Mu = Delta_Mu;
-        % Estim_sol.Delta_SumDist = Delta_SumDist;
-        % Estim_sol.PriorSigma_SumDist = PriorSigma_SumDist;
-        Estim_sol.PostSigma_SumDist = [];
-        Estim_sol.MinVariation = [];
-        % Estim_sol.cond_DeltaMu = cond_DeltaMu;
-        % Estim_sol.cond_DeltaVariation = cond_DeltaVariation;
-        Estim_sol.cond_PostVariation = [];
-        Estim_sol.flag_readjust = [];
-        Estim_sol.flag_done = true;
-        Estim_sol.flag_NoData = true;
-        Estim_sol.flag_OneCluster = [];
-        Estim_sol.flag_ExplorationStage = [];
-        return;
-    end
 end
 
 % V Conversion to int
@@ -180,38 +148,6 @@ if ~flag_OneCluster
         % (FOR NO REMOVE Testing):
         % numComponents = Prev_numComponents;
         numComponents = Prev_numComponents - size(Prev_Mu_found, 1);
-        if numComponents < 0
-        Phi_hat_x_next = zeros(height(Omega), 1);
-        
-        Estim_sol.GMModel = [];
-        Estim_sol.Data = Data;
-        Estim_sol.Preprocessed_V = Preprocessed_V;
-        Estim_sol.Data_Xe_hist_V = [];
-        Estim_sol.Priors = [];
-        Estim_sol.Mu = [];
-        Estim_sol.Sigma = [];
-        Estim_sol.Sigma_a = [];
-        Estim_sol.clust_eval = [];
-        Estim_sol.numComponents = numComponents;
-        Estim_sol.D_KL = [];
-        Estim_sol.Priors_found = [];
-        Estim_sol.Mu_found = Prev_Mu_found;
-        Estim_sol.Sigma_found = Prev_Sigma_found;
-        % Estim_sol.Delta_Mu = Delta_Mu;
-        % Estim_sol.Delta_SumDist = Delta_SumDist;
-        % Estim_sol.PriorSigma_SumDist = PriorSigma_SumDist;
-        Estim_sol.PostSigma_SumDist = [];
-        Estim_sol.MinVariation = [];
-        % Estim_sol.cond_DeltaMu = cond_DeltaMu;
-        % Estim_sol.cond_DeltaVariation = cond_DeltaVariation;
-        Estim_sol.cond_PostVariation = [];
-        Estim_sol.flag_readjust = [];
-        Estim_sol.flag_done = true;
-        Estim_sol.flag_NoData = true;
-        Estim_sol.flag_OneCluster = [];
-        Estim_sol.flag_ExplorationStage = [];
-        return;
-        end
         Model = GMM_EM(Data_Xe_hist_V, numComponents,...
                        "Max_iter", 500, "Min_var", 1e-10);
     end
@@ -270,11 +206,9 @@ end
 % Definition of minimum axis lengths --> "MinAxisLengths"
 
 % Update Sigma to Sigma_a to match the minimum constraints if needed
-% [Sigma_a, flag_readjust] = ReadjustConstrainedSigma(Sigma,...
-%                                                     MinVariation,...
-%                                                     MinAxisLengths);
-Sigma_a = Sigma;
-flag_readjust = false;
+[Sigma_a, flag_readjust] = ReadjustConstrainedSigma(Sigma,...
+                                                    MinVariation,...
+                                                    MinAxisLengths);
 
 
 %% Metrics

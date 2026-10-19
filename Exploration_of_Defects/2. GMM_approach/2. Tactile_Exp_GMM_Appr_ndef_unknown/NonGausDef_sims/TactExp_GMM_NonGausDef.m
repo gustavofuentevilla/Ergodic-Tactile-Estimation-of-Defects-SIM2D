@@ -66,7 +66,7 @@ rect_lens_2 = [0.1, 0.01];
 def_2 = rectangular_def(Omega, C_r_2, theta_r_2, rect_lens_2);
 
 C_r_3 = [1.15, 1.4;
-         1.28, 1.36]; 
+         1.15, 1.38]; 
 theta_r_3 = [45, 0];   
 rect_lens_3 = [0.025, 0.025;
                0.04, 0.01];    
@@ -332,7 +332,7 @@ Par_PDF.dx_1 = dx_1;
 Par_PDF.dx_2 = dx_2;
 Par_PDF.Meas_mean = a;
 % Range of possible Number of defects to be found
-Par_PDF.nbDef_range = [1, n_def + 2]; 
+Par_PDF.D_max = 10; 
 
 Par_PDF.Prev_Data = [];
 Par_PDF.Prev_numComponents = [];

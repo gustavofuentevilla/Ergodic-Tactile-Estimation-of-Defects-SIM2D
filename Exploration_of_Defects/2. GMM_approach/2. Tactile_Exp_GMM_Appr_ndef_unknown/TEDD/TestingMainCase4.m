@@ -2,17 +2,17 @@
 % import casadi.*
 % Erg_traj_ipopt = Function.load('/home/gustavo-fuentevilla/MATLAB/Ergodic_Tactile_Estimation_of_Defects_SIM2D/Casadi_Formulation_ExplTask/Erg_traj_2.casadi');
 
-for Test_i = 2:2
+for Test_i = 3:3
 
 for n_def = 7:7
 
-for idx_X0 = 13:20
+for idx_X0 = 17:17
 
-for run_idx = 1:5
+for run_idx = 2:2
 
 % Resto de ejecuciones
 close all
-clearvars -except Erg_traj_ipopt run_idx idx_X0 Test_i n_def
+clearvars -except Erg_traj_ipopt run_idx idx_X0 n_def Test_i
 clc
 
 import casadi.*
@@ -71,45 +71,53 @@ X0 = [L_1_l, L_2_l;
 
 %% Defects definition
 
-% n_def = 5;
+% n_def = 3;
 
-% Save random number generator to reproduce Tests
+
+% Load random number generator to reproduce Tests (from Case 1)
 filename = "/home/gustavo-fuentevilla/MATLAB/" + ...
            "Ergodic_Tactile_Estimation_of_Defects_SIM2D/" + ...
            "Exploration_of_Defects/2. GMM_approach/" + ...
            "2. Tactile_Exp_GMM_Appr_ndef_unknown/" + ...
-           "Test" + Test_i + "/Case1/" + n_def +...
-           "Def/X0_" + idx_X0 + ...
+           "Test" + Test_i + "/Case1/"...
+            + n_def + "Def/X0_" + idx_X0 + ...
            "/output_" + run_idx + ".mat";
 load(filename, "rng_saved")
+
 rng(rng_saved)
 
 % Defects generator
 [Mu, Sigma, r_elips_Phi] = DefectsGen(n_def, L_i_l, L_i_u);
 
-if Test_i == 2 % Equal severities
-    gm_dist = gmdistribution(Mu, Sigma);
-elseif Test_i == 3 % Different severities
-    if n_def == 3
-        proportions = [1/(1+2+3),...
-                       2/(1+2+3),...
-                       3/(1+2+3)];
-    elseif n_def == 5
-        proportions = [1/(1+1+2+2+3),...
-                       1/(1+1+2+2+3),...
-                       2/(1+1+2+2+3),...
-                       2/(1+1+2+2+3),...
-                       3/(1+1+2+2+3)];
-    elseif n_def == 7
-        proportions = [1/(1+1+1+2+2+2+3),...
-                       1/(1+1+1+2+2+2+3),...
-                       1/(1+1+1+2+2+2+3),...
-                       2/(1+1+1+2+2+2+3),...
-                       2/(1+1+1+2+2+2+3),...
-                       2/(1+1+1+2+2+2+3),...
-                       3/(1+1+1+2+2+2+3)];
-    end
-    gm_dist = gmdistribution(Mu, Sigma, proportions);
+
+if Test_i == 3    % Different Severities
+
+if n_def == 3
+    proportions = [1/(1+2+3),...
+                   2/(1+2+3),...
+                   3/(1+2+3)];
+elseif n_def == 5
+    proportions = [1/(1+1+2+2+3),...
+                   1/(1+1+2+2+3),...
+                   2/(1+1+2+2+3),...
+                   2/(1+1+2+2+3),...
+                   3/(1+1+2+2+3)];
+elseif n_def == 7
+    proportions = [1/(1+1+1+2+2+2+3),...
+                   1/(1+1+1+2+2+2+3),...
+                   1/(1+1+1+2+2+2+3),...
+                   2/(1+1+1+2+2+2+3),...
+                   2/(1+1+1+2+2+2+3),...
+                   2/(1+1+1+2+2+2+3),...
+                   3/(1+1+1+2+2+2+3)];
+end
+
+gm_dist = gmdistribution(Mu, Sigma, proportions);
+
+elseif Test == 2    % Equal severities
+
+gm_dist = gmdistribution(Mu, Sigma);
+
 end
 
 %PDF de referencia REAL
@@ -172,7 +180,8 @@ Lambda_k = (1 + vecnorm(K_cal, p, 1)').^(-(n + 1)/2);
 %% vector to add more points on the trajectory and get more data from sensor
 
 freq_spline = 200;
-t_spline = (0:1/freq_spline:t_f)';
+T_s_spline = 1/freq_spline;
+t_spline = (0:T_s_spline:t_f)';
 
 %% Loop for the Search task
 n_iter_max = 20;
@@ -191,7 +200,6 @@ V_Xe_reg = zeros(length(t_spline), 1, n_iter_max);
 
 % Initializations
 z_act = z_0;
-%u_act = u_0;
 phi_k_act = phi_k_reg;
 Phi_hat_x_act = Phi_hat_x;
 
@@ -206,14 +214,10 @@ Par_PDF.Omega = Omega;
 Par_PDF.dx_1 = dx_1;
 Par_PDF.dx_2 = dx_2;
 Par_PDF.Meas_mean = a;
-% Range of possible Number of defects to be found
+% maximum number of possible defects
 Par_PDF.D_max = n_def + 2; 
 
 Par_PDF.Prev_Data = [];
-% Par_PDF.Prev_Priors = [];
-% Par_PDF.Prev_Mu = [0, 0; 0, 0; 0, 0];
-% Par_PDF.Prev_Sigma = repmat(diag([realmax, realmax]), 1, 1, n_def);
-% Par_PDF.Prev_Sigma_a = repmat(diag([realmax, realmax]), 1, 1, n_def);
 Par_PDF.Prev_numComponents = [];
 
 % Define the dimensions of the registers for the defects found with an
@@ -309,7 +313,7 @@ for i = 1:n_iter_max
     Par_PDF.Prev_Phi_hat_x = Phi_hat_x_act;
 
     t_pdf_init = tic;
-    [Phi_hat_x_next, Estim_sol(i)] = PDF_Estimator(X_e_spline, V_Xe, Par_PDF);
+    [Phi_hat_x_next, Estim_sol(i)] = PDF_EstimatorCase4(X_e_spline, V_Xe, Par_PDF);
     T_PDF_i(i) = toc(t_pdf_init);
 
     % Update Iterations Counter where No data hav been found
@@ -342,26 +346,24 @@ for i = 1:n_iter_max
     Par_PDF.Prev_Mu_found = cat(1, Par_PDF.Prev_Mu_found, Estim_sol(i).Mu_found);
     Par_PDF.Prev_Sigma_found = cat(3, Par_PDF.Prev_Sigma_found, Estim_sol(i).Sigma_found);
 
+    % Save number of iterations achieved
     if Estim_sol(i).flag_done
-        n_iter = i; % Save number of iterations achieved
+        n_iter = i; 
         break;
     end
     
     % Saving Data to use it as "Previous data" in next iterations
     Par_PDF.Prev_Data = Estim_sol(i).Data;
-    % Par_PDF.Prev_Priors = Estim_sol(i).Priors;
-    % Par_PDF.Prev_Mu = Estim_sol(i).Mu;
-    % Par_PDF.Prev_Sigma = Estim_sol(i).Sigma;
-    % Par_PDF.Prev_Sigma_a = Estim_sol(i).Sigma_a;
 
     % Compute new Fourier coefficients for \hat{Phi}(x)
     [phi_k_reg, ~, ~] = FourierCoef_RefPDF(Phi_hat_x_next, Par_struct);
 
     % Update parameters for next iteration
     z_act = Z(end,:)';           % Initial condition for state
-    %u_act = U(end,:)';
-    phi_k_act = phi_k_reg;      % New target coefficients
+    phi_k_act = phi_k_reg;       % New target coefficients
     Phi_hat_x_act = Phi_hat_x_next;
+
+    disp("ITERACION " + i)
 
 end
 
@@ -374,13 +376,17 @@ T_sim_toc = toc(T_sim_tic);
 
 %% Saving variables (Except the casadi function)
 
+% Normal for-loop
+
+Case_i = 4;
 filename = "/home/gustavo-fuentevilla/MATLAB/" + ...
            "Ergodic_Tactile_Estimation_of_Defects_SIM2D/" + ...
            "Exploration_of_Defects/2. GMM_approach/" + ...
            "2. Tactile_Exp_GMM_Appr_ndef_unknown/" + ...
-           "UncGMM_Approach/UncGMM_Test/Test" + Test_i +...
+           "Test" + Test_i + "/Case" + Case_i +...
            "/" + n_def + "Def/X0_" + idx_X0 + ...
            "/output_" + run_idx + ".mat";
+
 save(filename, "-regexp", "^(?!(Erg_traj_ipopt)$).");
 
 
@@ -391,5 +397,3 @@ end
 end
 
 end
-
-

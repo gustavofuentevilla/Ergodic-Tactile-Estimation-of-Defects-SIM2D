@@ -1,0 +1,6 @@
+TEDD = Main approach
+TEDD-R = No repetition of points or weight used, just position points
+TEDD-T = No removing Gaussian when they reach Termination condition
+TEDD-W = Without weights, but augmenting data set
+TEDD-C = TEDD without KL-divergence constraint
+

@@ -66,13 +66,29 @@ end
 successRate = sum(nbMu == def, 'all') / numel(nbMu) * 100;
 
 % Success rate (porcentage of overall found defects)
-TotalFoundDef = 0;
-for X0_i = 1:totalX0
-    for out_i = 1:totalOut
-        TotalFoundDef = TotalFoundDef + height(Mu_found_buffer{X0_i, out_i});
-    end
-end
-SR_def = TotalFoundDef/(def*totalX0*totalOut) * 100;
+% TotalFoundDef = 0;
+% for X0_i = 1:totalX0
+%     for out_i = 1:totalOut
+%         TotalFoundDef = TotalFoundDef + height(Mu_found_buffer{X0_i, out_i});
+%     end
+% end
+% 
+% TotalDef = def*totalX0*totalOut;
+%
+% SR_def = TotalFoundDef/(TotalDef) * 100;
+
+% SR Considering false positives
+idx_fp = nbMu > def;
+nbFalsePositives = zeros(size(nbMu));
+nbFalsePositives(idx_fp) = nbMu(idx_fp) - def;
+nbTotalFoundDef = nbMu;
+nbTotalFoundDef(idx_fp) = def; 
+
+TotalDef = def*totalX0*totalOut;
+TotalFoundDef = sum(nbTotalFoundDef, "all");
+FalsePositives = sum(nbFalsePositives, "all");
+
+SR_def = TotalFoundDef / (TotalDef + FalsePositives) * 100;
 
 % Calculate the average values and standard deviations
 avgIter = mean(nbIter, "all");

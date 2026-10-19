@@ -4,7 +4,7 @@ Omega = Par_PDF.Omega;
 dx_1 = Par_PDF.dx_1;
 dx_2 = Par_PDF.dx_2;
 % K = Par_PDF.K;
-nbDef_range = Par_PDF.nbDef_range;
+D_max = Par_PDF.D_max;
 thres_meas = Par_PDF.thres_meas;
 iteration = Par_PDF.iteration;
 
@@ -61,11 +61,11 @@ if ~isempty(Prev_Mu_found)
 end
 
 % V Conversion to int
-V_int = round(Data(:,3));    
+% V_int = round(Data(:,3));    
 % Repeat elements on spatial domain (trajectory points)
-Data_Xe_hist_V = repelem(Data(:,1:2), V_int, 1); 
+% Data_Xe_hist_V = repelem(Data(:,1:2), V_int, 1); 
 % Without repeating position elements:
-% Data_Xe_hist_V = Data(:,1:2); 
+Data_Xe_hist_V = Data(:,1:2); 
 
 %% Check for No Data Case
 % If there is no data above the threshold, return the same distribution for
@@ -82,7 +82,6 @@ if isempty(Data_current)
     Estim_sol.Mu = [];
     Estim_sol.Sigma = [];
     Estim_sol.Sigma_a = [];
-    Estim_sol.clust_eval = [];
     Estim_sol.numComponents = 0;
     Estim_sol.D_KL = [];
     Estim_sol.Priors_found = [];
@@ -115,12 +114,13 @@ end
 % clusters logic below
 flag_OneCluster = false;
 if ~flag_OneCluster
-    d_max = max(pdist(Data_current(:,1:2)));
+    cHull = convhull(Data_current(:,1:2));
+    cHull(end) = [];
+    d_max = max(pdist(Data_current(cHull,1:2)));
     if d_max <= OneClustDistLimit
         % One cluster
-        clust_eval = [];
         numComponents = 1;
-        Model = GMM_EM(Data_Xe_hist_V, numComponents,...
+        Model = GMM_EM_weighted(Data_Xe_hist_V, Data(:,3), numComponents,...
                        "Max_iter", 500, "Min_var", 1e-10);
         flag_OneCluster = true;
     end
@@ -135,22 +135,24 @@ if ~flag_OneCluster
         % clusters under some distance-based criteria 
         % (DaviesBouldin, silhouette)
 
-        clust_eval = evalclusters(Data_Xe_hist_V,"kmeans","silhouette",...
-                                  KList=min(nbDef_range):max(nbDef_range));
-        numComponents = clust_eval.OptimalK;
+        % clust_eval = evalclusters(Data_Xe_hist_V,"kmeans","silhouette",...
+        %                           KList=2:D_max);
+        % numComponents = clust_eval.OptimalK;
+
+        numComponents = EvaluateClusters(Data(:,1:2), Data(:,3), D_max);
         
         % Define the model with the optimal number of components
-        Model = GMM_EM(Data_Xe_hist_V, numComponents,...
+        Model = GMM_EM_weighted(Data_Xe_hist_V, Data(:,3), numComponents,...
                            "Max_iter", 500, "Min_var", 1e-10);
     else
         % EXPLOITATION PHASE
         % Use the Optimal number of components from the last iteration in the
         % exploration phase minus the number of defects already found (if any)
-        clust_eval = [];
+        
         % (FOR NO REMOVE Testing):
         % numComponents = Prev_numComponents;
         numComponents = Prev_numComponents - size(Prev_Mu_found, 1);
-        Model = GMM_EM(Data_Xe_hist_V, numComponents,...
+        Model = GMM_EM_weighted(Data_Xe_hist_V, Data(:,3), numComponents,...
                        "Max_iter", 500, "Min_var", 1e-10);
     end
 end
@@ -291,7 +293,6 @@ Estim_sol.Priors = Priors;
 Estim_sol.Mu = Mu;
 Estim_sol.Sigma = Sigma;
 Estim_sol.Sigma_a = Sigma_a;
-Estim_sol.clust_eval = clust_eval;
 Estim_sol.numComponents = numComponents;
 Estim_sol.D_KL = D_KL;
 Estim_sol.Priors_found = Def_found.Priors;

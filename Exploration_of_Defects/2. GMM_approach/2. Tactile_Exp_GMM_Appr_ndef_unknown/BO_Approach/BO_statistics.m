@@ -4,11 +4,11 @@ clc
 
 %%
 % Test (2: Same severity levels, 3: Different severity levels)}
-Test_i = 2;
+Test_i = 3;
 % Case (1: full algoritm, 2: No repeating points, 3: No removing gaussians)
 Case_i = 1;
 % Number of Defects
-def = 3;
+def = 7;
 % Number of initial positions
 totalX0 = 20;
 % Number of tests per initial position
@@ -27,15 +27,15 @@ Sigma_found_buffer = cell(totalX0,totalOut);
 for X0_i = 1:totalX0
     for out_i = 1:totalOut
         % Loading file and extract variables
-        filename = "BO_unconsTest/Test" + Test_i + ...
-                   "/Case1/" + def + "Def/X0_" + X0_i + ...
+        filename = "BO_Time_Test/Test" + Test_i + ...
+                   "/" + def + "Def/X0_" + X0_i + ...
                     "/output_" + out_i + ".mat";
         load(filename, "samples", "Mu_found", "timer_iter", "Estim_sol",...
              "Mu", "Sigma", "Sigma_found", "timer_PDF", "BO_samples")
         
         % Save data into matrix (row = initial position; column = test)
-        % nbSamples(X0_i, out_i) = samples;  % For BO_stdTD 
-        nbSamples(X0_i, out_i) = BO_samples; % For the rest of BO
+        nbSamples(X0_i, out_i) = samples;  % For BO_stdTD 
+        % nbSamples(X0_i, out_i) = BO_samples; % For the rest of BO
         nbMu(X0_i, out_i) = height(Mu_found);
 
         % Iteration times

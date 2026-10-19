@@ -49,7 +49,8 @@ for i = 1:K
 end
 
 % Regularización e igualación de Priors
-Sigma0 = Sigma0 + repmat(eye(nbDim) * Opts.Min_var, [1, 1, K]);
+% Sigma0 = Sigma0 + repmat(eye(nbDim) * Opts.Min_var, [1, 1, K]);
+Sigma0 = Sigma0 + eye(nbDim)*Opts.Min_var;
 Priors0 = Priors0 / sum(Priors0);
 
 Mu = Mu0;
@@ -62,13 +63,15 @@ while true
     % ---- E-step ----
     Pxi = zeros(nbData, K);
     for i = 1:K
+        % Compute probability p(x|i)
+        % Probabilidad de que se presenten los puntos x por el gaussiano i
         Pxi(:,i) = gaussPDF(X, Mu(i,:), Sigma(:,:,i));
     end
     Pxi = Pxi + realmin; % Prevenir ceros y NaN
 
-    % Probabilidad a posteriori p(i|x) (Regla de Bayes)
+    % Compute posterior probability p(i|x): bayes rule
     Pix_tmp = Pxi .* Priors; 
-    Pix = Pix_tmp ./ sum(Pix_tmp, 2); %(nbData, K)
+    Pix = Pix_tmp ./ sum(Pix_tmp, 2); %(nbData, K) Probabilidad de que un x (dado) pertenezca al gaussiano i
 
     % Responsabilidades ponderadas por los pesos de muestra
     Pix_w = Pix .* W; % (nbData, K)
@@ -88,7 +91,7 @@ while true
     end
     
     % Regularización de covarianza
-    Sigma = Sigma + repmat(eye(nbDim) * Opts.Min_var, [1, 1, K]);
+    Sigma = Sigma + eye(nbDim)*Opts.Min_var;
 
     % ---- Criterio de Parada (Log-Likelihood Ponderado) ----
     for i = 1:K
@@ -116,7 +119,7 @@ while true
 end
 
 % Regularización final
-Sigma = Sigma + repmat(eye(nbDim) * Opts.Min_var, [1, 1, K]);
+Sigma = Sigma + eye(nbDim)*Opts.Min_var;
 
 %% 3. Cálculo de BIC Ponderado
 p = K * (nbDim * (nbDim + 1) / 2 + nbDim + 1) - 1;

@@ -4,9 +4,9 @@
 % Test3 : Different severity levels
 % Case1 : Full algorithm (TEDD)
 
-for Test_i = 2:3
+for Test_i = 3:3
 
-for n_def = 3:2:7
+for n_def = 3:2:5
 
 for idx_X0 = 1:20
 
