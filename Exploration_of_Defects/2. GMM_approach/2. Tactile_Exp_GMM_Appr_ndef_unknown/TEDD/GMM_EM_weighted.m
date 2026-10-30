@@ -1,11 +1,26 @@
 function GMModel = GMM_EM_weighted(Data, Weights, K, Opts)
-% GMM_EM_WEIGHTED Ajuste de Gaussian Mixture Model con pesos por muestra.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Weighted Gaussian Mixture Model fitting with EM algorithm
 %
-% Entradas:
-%   Data -    (N x 2) 2D Data.
-%   Weights - (N x 1) Weights vector
-%   K    -    (1 x 1) number of clusters.
-%   Opts - Options: Max_iter, loglik_threshold, Min_var.
+% Inputs:
+%   Data                (N x D)         Data with N observations and D 
+%                                       dimensions.
+% 
+%   Weights             (N x 1)         Weights column vector.
+%   K                   (1 x 1)         Number of clusters.
+%
+% Options (Opts):
+%   Max_iter            (1 x 1)         Maximum number of iterations
+%   loglik_threshold    (1 x 1)         Log-Likelihood threshold
+%   Min_var             (1 x 1)         Minimum variation on Sigma
+%
+% Outputs:
+%   GMModel:            (struct)
+%       Mu              (K x D)         Cluster centroids
+%       Sigma           (D x D x K)     Covariance matrixes
+%       Priors          (1 x K)         Mixture coefficients
+%       BIC             (1 x 1)         Bayesian Information Criterion
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 arguments
     Data (:,:) {mustBeNonempty, mustBeNumeric}
@@ -16,17 +31,17 @@ arguments
     Opts.Min_var (1,1) {mustBeNumeric, mustBePositive} = 1e-5
 end
 
-% Separación de coordenadas espaciales (X) y pesos (W)
+% Extract Data and normalize weights
 X = Data;
 W = Weights;
-W = W(:) / sum(W); % Normalization
+W = W(:) / sum(W);
 
 [nbData, nbDim] = size(X);
 loglik_old = -realmax;
 nbStep = 0;
 
-%% 1. Inicialización con K-Means Ponderado
-[Data_id, Mu0, ~] = kmeans_weighted(X, K, W,"replicates",3);
+%% Initialization with weighted K-means
+[Data_id, Mu0] = kmeans_weighted(X, K, W,"replicates",3);
 
 Priors0 = zeros(1, K);
 Sigma0 = zeros(nbDim, nbDim, K);
@@ -39,17 +54,16 @@ for i = 1:K
         continue;
     end
     
-    % Suma de pesos en el clúster
+    % Sum of weights in current cluster
     Priors0(i) = sum(W(idtmp)); 
     
-    % Covarianza ponderada inicial del clúster
+    % Initial weighted covariance matrix for current cluster
     w_cluster = W(idtmp) / sum(W(idtmp));
     X_c = X(idtmp, :) - Mu0(i, :);
     Sigma0(:,:,i) = (X_c' * (X_c .* w_cluster));
 end
 
-% Regularización e igualación de Priors
-% Sigma0 = Sigma0 + repmat(eye(nbDim) * Opts.Min_var, [1, 1, K]);
+% Add tiny variance to avoid numerical issues
 Sigma0 = Sigma0 + eye(nbDim)*Opts.Min_var;
 Priors0 = Priors0 / sum(Priors0);
 
@@ -57,43 +71,46 @@ Mu = Mu0;
 Sigma = Sigma0;
 Priors = Priors0;
 
-%% 2. Algoritmo Expectation-Maximization (EM)
+%% Expectation-Maximization (EM) Algorithm
 while true
 
     % ---- E-step ----
     Pxi = zeros(nbData, K);
     for i = 1:K
         % Compute probability p(x|i)
-        % Probabilidad de que se presenten los puntos x por el gaussiano i
+        % Probability of having x due to Gaussian i
         Pxi(:,i) = gaussPDF(X, Mu(i,:), Sigma(:,:,i));
     end
-    Pxi = Pxi + realmin; % Prevenir ceros y NaN
+    % To avoid zeros or NaNs
+    Pxi = Pxi + realmin;
 
     % Compute posterior probability p(i|x): bayes rule
+    % Probability that a given x belongs to Gaussian i
     Pix_tmp = Pxi .* Priors; 
-    Pix = Pix_tmp ./ sum(Pix_tmp, 2); %(nbData, K) Probabilidad de que un x (dado) pertenezca al gaussiano i
+    Pix = Pix_tmp ./ sum(Pix_tmp, 2); % (nbData, K)
 
-    % Responsabilidades ponderadas por los pesos de muestra
+    % Weighted responsibilities
     Pix_w = Pix .* W; % (nbData, K)
-    E = sum(Pix_w, 1); % (1, K) Probabilidad acumulada ponderada
+    % Weighted cumulative probability
+    E = sum(Pix_w, 1); % (1, K)
 
     % ---- M-step ----
     for i = 1:K
-        % Actualización de Priors
+        % Priors update
         Priors(i) = E(i); 
 
-        % Actualización de Centros (Medias)
+        % Means update
         Mu(i,:) = (Pix_w(:,i)' * X) / E(i);
 
-        % Actualización de Matrices de Covarianza
+        % Covariance update
         Data_Mu = X - Mu(i,:);
         Sigma(:,:,i) = (Data_Mu' * (Data_Mu .* Pix_w(:,i))) / E(i);
     end
     
-    % Regularización de covarianza
+    % Adding tiny variance
     Sigma = Sigma + eye(nbDim)*Opts.Min_var;
 
-    % ---- Criterio de Parada (Log-Likelihood Ponderado) ----
+    % Stopping criteria using Weighted Log-likelihood
     for i = 1:K
         Pxi(:,i) = gaussPDF(X, Mu(i,:), Sigma(:,:,i));
     end
@@ -101,31 +118,30 @@ while true
     F = Pxi * Priors';
     F(F < realmin) = realmin;
     
-    % Log-likelihood ponderado por W
     loglik = sum(W .* log(F)); 
 
     nbStep = nbStep + 1;
     if abs((loglik / loglik_old) - 1) < Opts.loglik_threshold
-        disp("Iteraciones en E-M: " + nbStep);
+        disp("Iterations in E-M: " + nbStep);
         break;
     end
     loglik_old = loglik;
 
     if nbStep >= Opts.Max_iter
-        warning("Máximo número de iteraciones alcanzado");
+        warning("Maximum number of iterations in E-M reached");
         break;
     end
 
 end
 
-% Regularización final
+% Adding tiny variance
 Sigma = Sigma + eye(nbDim)*Opts.Min_var;
 
-%% 3. Cálculo de BIC Ponderado
+%% Weighted BIC
 p = K * (nbDim * (nbDim + 1) / 2 + nbDim + 1) - 1;
 BIC = -2 * sum(W .* log(F)) + p * log(nbData);
 
-% Salida del modelo
+% Model output
 GMModel.Mu = Mu;
 GMModel.Sigma = Sigma;
 GMModel.Priors = Priors;
@@ -134,7 +150,7 @@ GMModel.BIC = BIC;
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%% FUNCIONES LOCALES %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%% Local Functions %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 function prob = gaussPDF(Data, Mu, Sigma)

@@ -1,18 +1,18 @@
 function [Mu, Sigma, r_elips_Phi] = DefectsGen(n_def, L_i_l, L_i_u)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % INPUTS
-% n_def: (1 x 1) Número de defectos a generar
-% L_i_l: (1 x 2) Límites inferiores del espacio de búsqueda [L_1_l, L_2_l]
-% L_i_u: (1 x 2) Límites superiores del espacio de búsqueda [L_1_u, L_2_u]
+% n_def: (1 x 1) Number of defects to generate
+% L_i_l: (1 x 2) Lower limits in search space [L_1_l, L_2_l]
+% L_i_u: (1 x 2) Upper limits in search space [L_1_u, L_2_u]
 % OUTPUTS
 % Mu: (n_def x 2) Bidimensional means, each row represents a defect center
-% Sigma: (2 x 2 x n_def) Defect Shapes Covariance matrix
+% Sigma: (2 x 2 x n_def) Defect Shape Covariance matrixes
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 n = 2; % Dimension of Search Space
 
 
-% Registro de Covarianzas genéricas (3 formas de defectos)
+% Generic covariances register (3 defect shapes)
 Var_def = 0.0005/3;
 
 Gen_Cov = zeros(n,n,3);
@@ -26,7 +26,7 @@ Gen_Cov(:,:,3) = [Var_def, 0;
 idx_gencov = (1:size(Gen_Cov,3))'; 
 idx_gencov = repmat(idx_gencov, 5*size(Gen_Cov,3), 1);
 
-% Covarianzas para los defectos
+% Defect covariances
 Sigma = zeros(n,n,n_def);
 for i = 1:n_def
     Sigma(:,:,i) = Gen_Cov(:,:,idx_gencov(i));
@@ -38,11 +38,12 @@ Sigma_ast_Phi = zeros(size(Sigma));
 r_elips_Phi = zeros(n, n_def);
 variation_Phi = zeros(1, n_def);
 for j = 1:n_def
-    stdev_Phi(:,:,j) = sqrtm(Sigma(:,:,j)); % Standard deviation
+    % Standard deviation
+    stdev_Phi(:,:,j) = sqrtm(Sigma(:,:,j)); 
     Sigma_ast_Phi(:,:,j) = 3*stdev_Phi(:,:,j);
-    % radios de ejes principales 
+    % principal axes radius 
     r_elips_Phi(:,j) = eig(Sigma_ast_Phi(:,:,j));
-    % Variación total = trace(Sigma_ast_phi) = sum(r_elips_phi)
+    % total variation = trace(Sigma_ast_phi) = sum(r_elips_phi)
     variation_Phi(:,j) = sum(r_elips_Phi(:,j));
 end
 r_elips_sorted = sort(reshape(r_elips_Phi,[], 1));
@@ -66,9 +67,9 @@ while(Verify_Mu_dist)
     % Calculate the pairwise distances between the means
     Mu_dist = pdist(Mu);
     
-    % Distance beetween Mu's should be greater than 2.5 times the largest
+    % Distance beetween Mu's should be greater than 3 times the largest
     % ellipse axes to ensure that defects doesn't overlap
-    Verify_Mu_dist = any(Mu_dist < 2.8*r_elips_sorted(end));
+    Verify_Mu_dist = any(Mu_dist < 3*r_elips_sorted(end));
 
 end
 

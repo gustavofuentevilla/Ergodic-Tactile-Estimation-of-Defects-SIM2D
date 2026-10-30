@@ -9,7 +9,7 @@ dx_2 = Par_struct.dx_2;
 L_i_l = Par_struct.L_i_l;
 L_i_u = Par_struct.L_i_u;
 
-%%%%%% Coeficientes usando un For loop
+%%%%%% Coeficients using a For loop
 % % Registro para guardar los coeficientes
 % phi_k_reg = zeros(K^n, 1);
 % 
@@ -50,7 +50,7 @@ h_k = sqrt(sum(f_tilde_k.^2) * dx_1 * dx_2);
 f_k = f_tilde_k ./ repmat(h_k, [height(Omega),1,1]);
 phi_k = sum( repmat(Phi_hat_x,[1,1,K^n]) .* f_k)*dx_1*dx_2;
 
-%Registros
+% Registers
 h_Kcal = reshape(h_k, K^n, 1);
 f_Kcal = reshape(f_k, height(Omega), K^n);
 phi_Kcal = reshape(phi_k, K^n, 1);

@@ -1,15 +1,24 @@
 function optimal_clust = EvaluateClusters(Data, W, k_max)
-% Data  (N x 2)     Data points
-% W     (N x 1)     Weights
-% k_max (1 x 1)     Maximum number of clusters to evaluate
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Determines the optimal number of clusters based on silhouettes criterion
+%
+% Inputs:
+%   Data            (N x 2)     2D Data points
+%   W               (N x 1)     Weights vector
+%   k_max           (1 x 1)     Maximum number of clusters to evaluate
+%
+% Outputs:
+%   optimal_clust   (1 x 1)     Optimal number of clusters
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 score = NaN(k_max, 1);
 
 for k = 2:k_max
 
-    [L,~,~] = kmeans_weighted(Data, k, W, "replicates", 3);
+    [L,~] = kmeans_weighted(Data, k, W, "replicates", 3);
 
-    % Aproximation of weighted silhouette criterion
+    % Alternative: Fast aproximation of weighted silhouette criterion
     %
     % s = silhouette(Data, L);
     % 
@@ -20,6 +29,7 @@ for k = 2:k_max
 
 end
 
+% Select the number of clusters with the highest silhouettes score
 [sil_val, idx] = max(score);
 
 optimal_clust = idx;

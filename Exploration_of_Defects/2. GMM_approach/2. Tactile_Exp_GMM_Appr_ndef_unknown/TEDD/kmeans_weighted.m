@@ -1,33 +1,46 @@
-function [labels, centroids, inertia] = kmeans_weighted(X, k, weights, Opts)
-% KMEANS_WEIGHTED Algoritmo K-Means ponderado con inicialización K-Means++.
+function [labels, centroids] = kmeans_weighted(X, k, weights, Opts)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Weighted K-means algorithm: the centroids update takes into account the
+% weights specified, initializations doesn't.
 %
-% Entradas:
-%   X          - Matriz de datos de tamaño (N x D).
-%   k          - Número de clústeres.
-%   weights    - Vector de pesos de las muestras de tamaño (N x 1).
-%   Opts.replicates - Número de réplicas/ejecuciones independientes (defecto = 1).
-%   Opts.init       - Método de inicio: "kmeans++" (defecto) o "random".
-%   Opts.tol        - Tolerancia relativa según la norma de Frobenius (defecto = 1e-4).
-%   Opts.max_iter   - Número máximo de iteraciones (defecto = 300).
+% Inputs:
+%   X                   (N x D)    Data with N observations and D 
+%                                  dimensions
+%   k                   (1 x 1)    Number of clusters
+%   weights             (N x 1)    Weights vector
 %
-% Salidas:
-%   labels    - Vector de etiquetas asignadas a cada punto (N x 1).
-%   centroids - Centroides finales calculados (k x D).
-%   inertia   - Suma ponderada de las distancias al cuadrado más cercanas.
+% Options (Opts):
+%   replicates          (1 x 1)    Number of replicates
+%   init                (string)   Initialization methods: "kmeans++",
+%                                  "random" or "density_based".
+%   tol                 (1 x 1)    Relative tolerance according to 
+%                                  Frobenius norm
+%   max_iter            (1 x 1)    Maximum number of iterations
+%   percent             (1 x 1)    Percent covering parameter for
+%                                  "density_based" initialization method
+%
+% Outputs:
+%   labels              (N x 1)    Cluster Labels asigned to data points.
+%   centroids           (k x D)    Cluster centroids
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 arguments
     X (:,:) {mustBeNumeric, mustBeNonempty}
     k (1,1) {mustBeInteger, mustBePositive}
     weights (:,1) {mustBeNumeric} = []
+    % Optional inputs
     Opts.replicates (1,1) {mustBeInteger, mustBePositive} = 1
-    Opts.init (1,1) string {mustBeMember(Opts.init, ["kmeans++", "random"])} = "kmeans++"
+    Opts.init (1,1) string {mustBeMember(Opts.init, ["kmeans++",...
+                            "random", "density_based"])} = "kmeans++"
     Opts.tol (1,1) {mustBeNumeric, mustBePositive} = 1e-4
     Opts.max_iter (1,1) {mustBeInteger, mustBePositive} = 300
+    Opts.percent (1,1) {mustBeNumeric, mustBePositive} = 0.02
 end
 
 [N, ~] = size(X);
 
-% Asignar pesos unitarios si el vector viene vacío
+% Assign unitary weights if empty
 if isempty(weights)
     weights = ones(N, 1);
 else
@@ -39,18 +52,17 @@ best_labels = [];
 best_centroids = [];
 
 for rep = 1:Opts.replicates
-    % 1. Inicialización de centroides (sin utilizar pesos)
-    centroids = initialize_centroids(X, k, Opts.init);
-    labels = zeros(N, 1);
+    % Centroids initialization (unweighted)
+    centroids = initialize_centroids(X, k, Opts.init, Opts.percent);
 
     for iter = 1:Opts.max_iter
         old_centroids = centroids;
 
-        % Paso de asignación: distancia euclídea al cuadrado al centroide más cercano
+        % Data assignment to the closest centroid
         D = pdist2(X, centroids, 'squaredeuclidean');
         [~, labels] = min(D, [], 2);
 
-        % Paso de actualización: media ponderada con los pesos
+        % Centroids weighted update
         for j = 1:k
             mask = (labels == j);
             w_cluster = weights(mask);
@@ -59,13 +71,12 @@ for rep = 1:Opts.replicates
             if sum_w > 0
                 centroids(j, :) = sum(X(mask, :) .* w_cluster, 1) / sum_w;
             else
-                % Re-inicializar aleatoriamente si un clúster queda vacío
+                % Random re-initialization if cluster is empty
                 centroids(j, :) = X(randi(N), :);
             end
         end
 
-        % Criterio de convergencia: Tolerancia relativa basada en la norma de Frobenius
-        % del cambio de los centroides respecto a la iteración previa
+        % Convergence check (frobenius norm)
         frob_shift = norm(centroids - old_centroids, 'fro');
         frob_old = norm(old_centroids, 'fro');
         
@@ -74,7 +85,7 @@ for rep = 1:Opts.replicates
         end
     end
 
-    % Cálculo de la inercia ponderada para seleccionar la mejor réplica
+    % Weighted inertia computation to select the best replicate
     D = pdist2(X, centroids, 'squaredeuclidean');
     [min_dist_sq, labels] = min(D, [], 2);
     inertia = sum(weights .* min_dist_sq);
@@ -88,25 +99,26 @@ end
 
 labels = best_labels;
 centroids = best_centroids;
-inertia = best_inertia;
+% inertia = best_inertia;
 
 end
 
-%% Función auxiliar para la inicialización de centroides
-function centroids = initialize_centroids(X, k, method)
+%% Initialization methods
+function centroids = initialize_centroids(X, k, method, percent)
     [N, D] = size(X);
     centroids = zeros(k, D);
 
     if method == "random"
         centroids = X(randperm(N, k), :);
+
     elseif method == "kmeans++"
-        % 1. Primer centroide elegido aleatoriamente con distribución uniforme
+        % Choosing the first centroid randomly
         first_idx = randi(N);
         centroids(1, :) = X(first_idx, :);
 
-        % 2. Selección probabilística de los k-1 centroides restantes
+        % Choosing the rest of centroids
         for m = 2:k
-            % Distancia mínima al cuadrado hacia los centroides ya existentes
+            % Minimum squared distance to the existing centroids
             D2 = min(pdist2(X, centroids(1:m-1, :), 'squaredeuclidean'), [], 2);
 
             sum_D2 = sum(D2);
@@ -116,7 +128,7 @@ function centroids = initialize_centroids(X, k, method)
                 prob = D2 / sum_D2;
             end
 
-            % Muestreo proporcional a D(x)^2 (sin considerar pesos)
+            % Proportional sampling
             cumprob = cumsum(prob);
             r = rand();
             next_idx = find(cumprob >= r, 1, 'first');
@@ -126,5 +138,50 @@ function centroids = initialize_centroids(X, k, method)
             end
             centroids(m, :) = X(next_idx, :);
         end
+
+    elseif method == "density_based"
+        % Distance matrix
+        D_matrix = pdist2(X, X);
+
+        % Computing radius R
+        triu_mask = triu(true(N), 1);
+        dist_vec = sort(D_matrix(triu_mask));
+        num_dist = length(dist_vec);
+        pos = max(1, round(num_dist * percent));
+        R = dist_vec(pos);
+        if R == 0, R = eps; end
+
+        % Density computation of data points
+        density = sum(exp(-(D_matrix / R).^2), 2);
+        avg_density = mean(density);
+
+        % Minimum Density Distance (MDD) computation
+        MDD = zeros(N, 1);
+        for i = 1:N
+            higher_dens_idx = find(density > density(i));
+            if isempty(higher_dens_idx)
+                % Maximum density point: maximum distance to the furthest point
+                MDD(i) = max(D_matrix(i, :));
+            else
+                % Distance to the closest point with higher density
+                MDD(i) = min(D_matrix(i, higher_dens_idx));
+            end
+        end
+
+        % Density filtering by the average
+        candidate_mask = (density > avg_density);
+        candidate_indices = find(candidate_mask);
+
+        % Select the centroids
+        if length(candidate_indices) >= k
+            [~, sort_order] = sort(MDD(candidate_indices), 'descend');
+            selected_indices = candidate_indices(sort_order(1:k));
+        else
+            [~, sort_order] = sort(MDD, 'descend');
+            selected_indices = sort_order(1:k);
+        end
+
+        centroids = X(selected_indices, :);
     end
+
 end
